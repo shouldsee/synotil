@@ -8,7 +8,7 @@ T0=$(datefloat)
 #ADADIR="/home/Program_NGS_sl-pw-srv01/Trimmomatic-0.32/adapters"
 #ADADIR="$ENVDIR/adapters"
 echo 
-echo "===== ALIgning RNASeq ====="
+echo "===== Trimmomatic ====="
 
 read1=`readlink -f $1`
 read2=`readlink -f $2`

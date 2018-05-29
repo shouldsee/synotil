@@ -247,3 +247,7 @@ samplePATH = sys.argv[1]
 temp_dir = process_rna_sample( samplePATH, )
 print '[DONE!]:%s'%samplePATH
 print temp_dir
+
+samplePATH = samplePATH.rstrip('/')
+last3path = '/'.join(samplePATH.split('/')[-3:])
+os.system('echo %s >OLDDIR'%last3path)
