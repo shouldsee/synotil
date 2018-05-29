@@ -6,7 +6,7 @@ SELF=${BASH_SOURCE[0]}
 ENVDIR=$PWD
 
 ############################################
-##### install binaries
+echo ==== Installing binaries
 JARLIB=$PWD/jar
 mkdir -p $PWD/bin
 mkdir -p $JARLIB
@@ -30,13 +30,13 @@ ln -sf /home/Program_NGS_sl-pw-srv01/stringtie-1.3.3b.Linux_x86_64/stringtie $EN
 ##### Assumed installed
 # fastqc
 # pip install --user pyfaidx
-##### Install binaries
+echo ---- Installing binaries
 ############################################
 
 
 
 ############################################
-## ==== Preparing different FASTA files =====
+echo ==== Preparing different FASTA files =====
 #### Prepare adapter fasta
 mkdir -p $PWD/adapters
 ln -sf $TRIMDIR/adapters/* adapters
@@ -59,5 +59,5 @@ faidx ref/genome.fa -i chromsizes > ref/genome.sizes
 cp -f ${SELF%/*}/activate.sh bin/activate
 cp -f ${SELF%/*}/*.sh bin/
 
-## ---- Preparing different FASTA files ----
+echo ---- Preparing different FASTA files ----
 ############################################

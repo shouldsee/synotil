@@ -1,48 +1,56 @@
 #!/usr/bin/env bash
 SELF=${BASH_SOURCE[0]}
 SELF=`readlink -f $SELF`
+SELFALI=$(bname $SELF)
 
 ### Kind of weird here...
 source $(dirname $SELF)/activate
-### 
 
-SELFALI=$(bname $SELF)
+######################################
+#### Hand-coded environment variables
+#### $GFF,$GTF,$IDX_HISAT,$GSIZE should have been defined before proceeds
 
+####### Adapter FASTA
+export ADADIR="/home/Program_NGS_sl-pw-srv01/Trimmomatic-0.32/adapters"
+export FA_ADAPTER="$ENVDIR/adapters/TruSeq3-PE-all.fa"
+
+###### Genome annotation .gtf and .gff3 (optional)
+export GTF=$(echo "$ENVDIR/ref/annotation/*.gtf")
+export GFF=$(echo "$ENVDIR/ref/annotation/*.gene_exons.gff3")
+
+###### HISAT2 index
+A=$(ls -1 $ENVDIR/ref/HISAT2Index/* | head -1)
+export IDX_HISAT=${A%%.*}
+export GSIZE="${ENVDIR}/ref/genome.sizes"
+
+#### Hand-coded environment variables
+######################################
+
+
+######################################
+echo ==== Parse Input arguments
 {
-    ##### Input arguments
     read1=$1 ####  e.g. test_R1_.fastq
     read2=$2 ####  e.g. test_R2_.fastq
     NCORE=${3:-6} #### number of threads, default to 6
-
-
     DIR=$PWD
     ALI1=$(bname $read1)
     ALI2=$(bname $read2)
     ALI=${ALI1%_R1_*}
+#         echo $ALI1; echo $ALI2; echo $ALI
+    LOGFILE=$ALI.pipeline_rnaseq.log
+    echo []Proposed alias ${ALI} ==
+    echo []Logfile $LOGFILE
+}
 
-
-    #####  $GFF,$GTF,$FA_HISAT,$GSIZE should have been defined before proceeds
-    ##### Checking $ENVDIR/bin/activate
-    GSIZE=${ENVDIR}/ref/genome.sizes
-
-    echo $ALI1
-    echo $ALI2
-    echo $ALI
-
-    echo $GTF
-    echo $IDX_HISAT
-
-
-
+######################################
+echo ==== main program
+{
     T00=`datefloat`
-    echo '== Proposed alias ${ALI} =='
+    
+
+    
     echo 'command,time(s)'>$ALI.time
-
-    #INPUT="$INDIR/Exp0024-ZT8-Bdphyc_S2_R1_raw.fastq $INDIR/Exp0024-ZT8-Bdphyc_S2_R2_raw.fastq"
-
-    ##### Simply 'head' a .fastq file not accepted by trimmomatic
-    #INPUT=" $INDIR/testR1.fastq $INDIR/testR2.fastq"
-    #INPUT=" $INDIR/t1.fq $INDIR/t1.fq"
     #######################
 
 
@@ -52,7 +60,7 @@ SELFALI=$(bname $SELF)
     pipeline_trim.sh $read1 $read2 $NCORE 
     assert "$? -eq 0" $LINENO "Trimmomatic/fastqc failed"
 
-    pipeline_hisat.sh  $ALI1.fastq  $ALI2.fastq  $IDX_HISAT $NCORE
+    pipeline_hisat.sh  $ALI1.fastq  $ALI2.fastq $IDX_HISAT $NCORE
     assert "$? -eq 0" $LINENO "HISAT2 failed"
 
     pipeline_samtools.sh ${ALI}.sam $NCORE
@@ -65,7 +73,6 @@ SELFALI=$(bname $SELF)
     assert "$? -eq 0" $LINENO "BAMQC/conversion failed"
 
     CMD="stringtie -p $NCORE --rf ${ALI}.bam -G $GTF -o ${ALI}.stringtie.gtf -A ${ALI}.stringtie.count &> ${ALI}.stringtie.log"
-
     {   
         T0=`datefloat`
         echo $CMD
@@ -77,7 +84,6 @@ SELFALI=$(bname $SELF)
 
 
     CMD="htseq-count -s reverse -f bam ${ALI}.bam $GTF -r pos -o $ALI.htseq.sam >$ALI.htseq.count 2>${ALI}.htseq.log"
-
     ##### trying out -s parameter
     #CMD="htseq-count -s yes -f bam ${ALI}.bam $GTF -r pos -o $ALI.htseq.sam >$ALI.htseq.count 2>${ALI}.htseq.log"
     {   
@@ -110,4 +116,5 @@ SELFALI=$(bname $SELF)
 
     echo "[$SELFALI]:OUTPUT has been deposited into $PWD/output"
     echo "[$SELFALI]: ...Ending..."
-}  &> $ALI.pipeline_rnaseq.log
+    echo ---- Main program
+}  &> $LOGFILE
