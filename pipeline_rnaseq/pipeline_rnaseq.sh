@@ -17,11 +17,11 @@ export FA_ADAPTER="$ENVDIR/adapters/TruSeq3-PE-all.fa"
 ###### Genome annotation .gtf and .gff3 (optional)
 export GTF=$(echo "$ENVDIR/ref/annotation/*.gtf")
 export GFF=$(echo "$ENVDIR/ref/annotation/*.gene_exons.gff3")
+export GSIZE="${ENVDIR}/ref/genome.sizes"
 
 ###### HISAT2 index
 A=$(ls -1 $ENVDIR/ref/HISAT2Index/* | head -1)
 export IDX_HISAT=${A%%.*}
-export GSIZE="${ENVDIR}/ref/genome.sizes"
 
 #### Hand-coded environment variables
 ######################################
@@ -57,7 +57,7 @@ echo ==== main program
 
     ########### Starting pipeline
 
-    pipeline_trim.sh $read1 $read2 $NCORE 
+    pipeline_trim_pe.sh $read1 $read2 $NCORE 
     assert "$? -eq 0" $LINENO "Trimmomatic/fastqc failed"
 
     pipeline_hisat.sh  $ALI1.fastq  $ALI2.fastq $IDX_HISAT $NCORE
@@ -101,11 +101,11 @@ echo ==== main program
         set -e
         ALI=$1
         mkdir -p output
-        ln *.log *.time output/
-        ln *.count *.gtf output/
-        ln *.bw *.bdg output/
-        ln $ALI.bam $ALI.bai output/
-        ln fastqc/*.html output/
+        ln -f *.log *.time output/
+        ln -f *.count *.gtf output/
+        ln -f *.bw *.bdg output/
+        ln -f $ALI.bam $ALI.bai output/
+        ln -f fastqc/*.html output/
     }
 
     cleanup ${ALI} &>${ALI}.cleanup.log
