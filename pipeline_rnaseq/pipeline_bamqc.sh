@@ -12,10 +12,12 @@ echo "===== Starting $MSG ====="
 
 
 ALI=$(bname $INPUT)
-time `bamqc $INPUT &>> ${ALI}.runlog` & 
-pid[0]=$!
-time `bam2bigwig $INPUT $GSIZE &>> ${ALI}.runlog` & 
-pid[1]=$!
+CMD="bamqc $INPUT &>> ${ALI}.runlog"
+echo $CMD
+time `eval $CMD` &  pid[0]=$!
+
+CMD="bam2bigwig $INPUT $GSIZE &>> ${ALI}.runlog"
+time `eval $CMD` &  pid[1]=$!
 
 for p in ${pid[*]}
 do

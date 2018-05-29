@@ -39,7 +39,7 @@ OPT="--threads $NCORE --no-mixed --rna-strandness RF --dta --fr"
 CMD="$PROG -x $GIDX -1 $read1 -2 $read2 -S ${ali}.sam $OPT" 
 
 echo $CMD
-time `$CMD &> ${ali}-run.log`
+time `$CMD &> ${ali}.$PROG.log`
 
 #ln -f $PWD/${ali}.sam ../${ali}.sam
 #cd ..

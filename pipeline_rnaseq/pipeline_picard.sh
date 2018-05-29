@@ -32,12 +32,13 @@ ALI=$ali
 
 CMD="java -XX:ParallelGCThreads=$NCORE -jar"
 CMD="$CMD $JARLIB/MarkDuplicates.jar"
-CMD="$CMD I=$read1 O=${ali}_dedup.bam M=${ali}_dupstat.txt"
+CMD="$CMD I=$read1 O=${ali}_dedup.bam M=${ali}.dupstat.log"
 CMD="$CMD REMOVE_DUPLICATES=true "
 echo $CMD
 # CMD="$PROG view $read1 -b $OPT"
-time `$CMD &> ${ali}.runlog`
+time `$CMD &> ${ali}.$PROG.log`
 ln -f $PWD/${ali}_dedup.bam ../${ali}.bam
+ln -f $PWD/*.log ../
 cd ..
 
 echo "===== Ending $MSG  ====="

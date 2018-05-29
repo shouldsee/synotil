@@ -97,7 +97,7 @@ bamqc() {
   echo $ALI
   samtools index $BAM $ALI.bai &
   pids[0]=$!
-  samtools flagstat $BAM >$ALI.flagstat &  
+  samtools flagstat $BAM >$ALI.flagstat.log &  
   pids[1]=$!
   for pid in ${pids[*]}; do
     wait $pid
@@ -131,7 +131,7 @@ routine_fastqc()
 export -f routine_fastqc
 
 bname() {
-  basename ${1%.*}
+  basename ${1%%.*}
 }
 export -f bname
 
@@ -147,3 +147,24 @@ headbam() {
     samtools view -h $BAM | head -n${NLINE} | samtools view -bS
 }
 export -f headbam
+
+guessPhred() {
+    inputfile=$1
+    # Source: http://onetipperday.sterding.com/2012/10/code-snip-to-decide-phred-encoding-of.html
+    # Update: The following part for checking the file extension can be simplified (Thanks to the comment from Unknown) 
+
+    less $inputfile | head -n40 | awk '{if(NR%4==0) printf("%s",$0);}' |  od -A n -t u1 | awk 'BEGIN{min=100;max=0;}{for(i=1;i<=NF;i++) {if($i>max) max=$i; if($i<min) min=$i;}}END{if(max<=74 && min<59) print "Phred+33"; else if(max>73 && min>=64) print "Phred+64"; else if(min>=59 && min<64 && max>73) print "Solexa+64"; else print "Unknown score encoding!";}'
+}
+export -f guessPhred
+
+headfastq() {
+  FILE=$1  
+  HEADLEN=${2:-100k}
+  ALI=$(bname $FILE)
+  if [[ $FILE == *.fastq.gz ]]; then
+      gzip -dc $FILE | head -n $HEADLEN | gzip -c >$ALI.fastq.gz
+  elif [[ $FILE == *.fastq ]]; then
+      head -n $HEADLEN $FILE >$ALI.fastq
+  fi
+}
+export -f headfastq

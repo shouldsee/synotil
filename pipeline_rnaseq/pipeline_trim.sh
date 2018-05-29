@@ -10,8 +10,8 @@ T0=$(datefloat)
 echo 
 echo "===== ALIgning RNASeq ====="
 
-read1=$1
-read2=$2
+read1=`readlink -f $1`
+read2=`readlink -f $2`
 NCORE=${3:-4}
 
 read ALI1 ALI2 PHRED <<< $(check_PE $read1 $read2)
