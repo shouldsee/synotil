@@ -168,3 +168,10 @@ headfastq() {
   fi
 }
 export -f headfastq
+
+envPull() {
+    chmod +x $ORIGIN/* 
+    cp -f $ORIGIN/* $ENVDIR/bin
+#     chmod +x $ENVDIR/bin/*.sh 
+}
+export -f envPull

@@ -55,9 +55,10 @@ ln -sf /home/ref_genew/Brachypodium_Bd21_v3.1/* ref
 ln -sf $PWD/ref/assembly/*.fa ref/genome.fa
 faidx ref/genome.fa -i chromsizes > ref/genome.sizes
 
-
-cp -f ${SELF%/*}/activate.sh bin/activate
-cp -f ${SELF%/*}/*.sh bin/
+ORIGIN=`readlink -f ${SELF%/*}`
+cp -u $ORIGIN/activate.sh bin/activate
+cp -u $ORIGIN/*.sh bin/
+echo export ORIGIN=$ORIGIN >> bin/activate
 
 echo ---- Preparing different FASTA files ----
 ############################################
