@@ -54,18 +54,9 @@ ID=${1}
 PROG=${2:-pipeline_rnaseq.sh}
 OUTDIR=${3:-$HOME/pipeline_output}
 OUTDIR=${OUTDIR%/}
-# echo ID=$ID
-# echo PROG=$PROG
-# echo OUTDIR=$OUTDIR
-# exit 0
+# echo ID=$ID; echo PROG=$PROG; echo OUTDIR=$OUTDIR; exit 0;
 
 
-#==== Examples: 
-#     pipeline_mapper.sh /media/pw_synology3/PW_HiSeq_data/RNA-seq/Raw_data/testONLY/133R/BdPIFs-32747730/133E_23_DN-40235206 
-#     pipeline_mapper.sh /media/pw_synology3/BrachyPhoton/raw/133R/BdPIFs-32747730/133E_23_DN-40235206 $ENVDIR/bin/pipeline_rnaseq.sh
-####  With '$ENVDIR/bin/activate' sourced
-#     pipeline_mapper.sh /media/pw_synology3/BrachyPhoton/raw/133R/BdPIFs-32747730/133E_23_DN-40235206 pipeline_rnaseq.sh /media/pw_synology3/BrachyPhoton/Mapped_data
-#     pipeline_mapper.sh /media/pw_synology3/BrachyPhoton/raw/133R/BdPIFs-32747730/133E_23_DN-40235206 pipeline_chipseq.sh /media/pw_synology3/BrachyPhoton/Mapped_data
 
 mkdir -p $OUTDIR
 {
@@ -96,11 +87,11 @@ mkdir -p $OUTDIR
 }
 
 {
-    OUTALI=${PROG%.*}/$OLDDIR
     #### echo ==== Uploading outputs
+    OUTALI=${PROG%.*}/$OLDDIR
     mkdir -p $OUTDIR/$OUTALI
     cp output/* $OUTDIR/$OUTALI
 }  
 cd ..
 
-echo [FINISH]: Outputed to $OUTDIR/$OLDDIR
+echo "[FINISH]: Outputed to $OUTDIR/$OLDDIR"
