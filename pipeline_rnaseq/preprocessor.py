@@ -148,27 +148,6 @@ def process_rna_sample(samplePATH, debug=0):
     #### Stop here
     return temp_dir
 
-    #### To be refactored
-    # Does not make sense
-    cmd = 'cp %s .' % RNA_SEQ_MAP_FILE 
-    print cmd
-    cmd = 'bash %s %s %s' % (RNA_SEQ_MAP_FILE, 
-                          '%s_R1_raw.fastq'%alias,
-                          '%s_R2_raw.fastq'%alias)
-    print cmd
-    # copy all files to destination folder
-    DESTINATION_DIR2 = DESTINATION_DIR.rstrip('/') + '/' + common_name
-    make_directory(DESTINATION_DIR2)
-
-    cmd = 'rm -f *.fastq' # remove fastq files to save space
-    shellexec(cmd) # CHANGE
-    cmd = 'cp -rf output/* %s' % DESTINATION_DIR2
-    shellexec(cmd)
-
-    cmd = 'rm -rf tophat_results' 
-    shellexec(cmd) # CHANGE    
-    pass
-
 
 
 assert len(sys.argv) >= 2,'''

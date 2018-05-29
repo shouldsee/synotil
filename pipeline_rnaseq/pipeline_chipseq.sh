@@ -19,10 +19,7 @@ export GTF=$(echo "$ENVDIR/ref/annotation/*.gtf")
 export GFF=$(echo "$ENVDIR/ref/annotation/*.gene_exons.gff3")
 export GSIZE="${ENVDIR}/ref/genome.sizes"
 
-###### HISAT2 index
-# A=$(ls -1 $ENVDIR/ref/HISAT2Index/* | head -1)
-# export IDX_HISAT=${A%%.*}
-#  /home/ref_genew/Brachypodium_Bd21_v3.1/Bowtie2Index/Bdistachyon314_Bd
+###### BOWTIE2 index
 A=$(ls -1 $ENVDIR/ref/Bowtie2Index/* | head -1)
 export IDX_BOWTIE2=${A%%.*}
 #### Hand-coded environment variables
