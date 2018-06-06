@@ -149,7 +149,6 @@ def process_rna_sample(samplePATH, debug=0):
     return temp_dir
 
 
-
 assert len(sys.argv) >= 2,'''
     Usage: (python) map-RNA-seq.py /path/to/folder/
         The folder should contains raw reads in .fastq(.gz) format
