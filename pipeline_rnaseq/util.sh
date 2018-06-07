@@ -175,3 +175,61 @@ envPull() {
 #     chmod +x $ENVDIR/bin/*.sh 
 }
 export -f envPull
+
+
+dusort(){
+ du -csh "$@" | sort -h 
+}
+export -f dusort
+
+flatten(){
+    #### Link the input directory to $PWD in a flattened manner
+    BNAME=`basename $1`
+    ODIR=${2:-${BNAME}_flat}
+    mkdir -p $ODIR
+    find $1 -mindepth 2 -type f -exec ln -f -t $ODIR  -i '{}' +
+}
+export -f flatten
+
+flattenDir(){
+    INDIR=`readlink -f $1`
+    BNAME=`basename $1`
+    mkdir -p ${BNAME}_flat
+    cd ${BNAME}_flat
+    for D in $INDIR/*
+    do
+        flatten $D
+    done
+    cd ..
+}
+export -f flattenDir
+
+
+regGroup(){
+    ##### Regroup files in the current directory into subfolders
+    ##### depending on the output of a REGEX
+
+    REG=${1:-".*(_S[0-9]+_).*"}
+    ARR=`ls -1 | sed -E --expression="s/$REG/\1/g" |  uniq`
+    for ID in ${ARR[@]}
+    do
+        DI=${ID//_/}
+#         echo $ID $DI
+        INF=`ls -1 | grep $ID`
+        mkdir -p $DI; mv $INF $DI 
+    done
+}
+export -f regGroup
+
+tidyFastq(){
+    #### Tidy-up a Project folder containing multiple runs
+    INDIR=${1%/}
+    ODIR=${2:-${INDIR}_tidy}
+    echo $INDIR
+    echo "[Output]ing to $ODIR"
+    mkdir -p $ODIR
+    flatten $INDIR $ODIR
+    cd $ODIR; regGroup ".*(_S[0-9]+_).*"    
+    cd ..
+}
+export -f tidyFastq
