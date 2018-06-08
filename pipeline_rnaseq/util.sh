@@ -1,5 +1,9 @@
 #!/bin/bash
 # assert.sh Source: http://tldp.org/LDP/abs/html/debugging.html
+export UTIL=`readlink -f ${BASH_SOURCE}`
+# export UTIL=$SELF
+
+echo "[SOURCE]ing [UTILITIES] from ${UTIL}"
 
 #######################################################################
 assert ()                 #  If condition false,
@@ -106,15 +110,31 @@ bamqc() {
 export -f bamqc
 
 bam2bigwig() {
-    BAM=$1
-    GSIZE=$2
+    local BAM=$1
+    local GSIZE=$2
+    local NORM=${3:-RPGC}
     ALI=$(bname $BAM)
     
     #### -split argument is essential !!!
     genomeCoverageBed -ibam $BAM -bg -split > $ALI.bdg 
-    bedGraphToBigWig $ALI.bdg $GSIZE $ALI.bw
+    bedGraphToBigWig $ALI.bdg $GSIZE $ALI.bw 
+    bamCoverage --normalizeUsing $NORM --skipNAs --effectiveGenomeSize `size2sum $GSIZE` \
+      --smoothLength 10 --binSize 10 \
+      -b $BAM -o ${ALI}_${NORM}.bw
 }
 export -f bam2bigwig
+
+bam2normBW(){
+    local BAM=$1
+    local NORM=${2:-RPGC}
+}
+export -f bam2normBW
+
+size2sum(){
+    local GSIZE=$1
+    cut -d$'\t' -f2 $GSIZE | paste -sd+ | bc
+}
+export -f size2sum
 
 routine_fastqc() 
 { 
@@ -185,9 +205,9 @@ export -f dusort
 flatten(){
     #### Link the input directory to $PWD in a flattened manner
     BNAME=`basename $1`
-    ODIR=${2:-${BNAME}_flat}
+    local ODIR=${2:-${BNAME}_flat}
     mkdir -p $ODIR
-    find $1 -mindepth 2 -type f -exec ln -f -t $ODIR  -i '{}' +
+    find $1 -mindepth 1 -type f -exec ln -f -t $ODIR  -i '{}' +
 }
 export -f flatten
 
@@ -209,8 +229,8 @@ regGroup(){
     ##### Regroup files in the current directory into subfolders
     ##### depending on the output of a REGEX
 
-    REG=${1:-".*(_S[0-9]+_).*"}
-    ARR=`ls -1 | sed -E --expression="s/$REG/\1/g" |  uniq`
+    local REG=${1:-".*(_S[0-9]+_).*"}
+    local ARR=`ls -1 | sed -E --expression="s/$REG/\1/g" |  uniq`
     for ID in ${ARR[@]}
     do
         DI=${ID//_/}
@@ -225,11 +245,47 @@ tidyFastq(){
     #### Tidy-up a Project folder containing multiple runs
     INDIR=${1%/}
     ODIR=${2:-${INDIR}_tidy}
-    echo $INDIR
-    echo "[Output]ing to $ODIR"
+    echo $INDIR;    echo "[Output]ing to $ODIR"
     mkdir -p $ODIR
     flatten $INDIR $ODIR
     cd $ODIR; regGroup ".*(_S[0-9]+_).*"    
     cd ..
 }
 export -f tidyFastq
+
+flattenFastq(){
+    #### Take a .fastq directory from illumina download and flatten it.
+    #### First level directory names are concatentaed as prefix
+    INDIR=${1%/}
+    local ODIR=${2:-${INDIR}_tidy}
+    echo $INDIR;    echo "[Output]ing to $ODIR"
+    mkdir -p $ODIR
+    for D in $(ls -d1 $INDIR/*)
+    do         
+        echo $D, ${ODIR}/${D#*/}
+        flatten $D ${ODIR}/${D#*/}
+    done
+    cd $ODIR
+    flatten_keepname *
+    cd ..
+}
+export -f flattenFastq
+
+findLeaf(){
+    ### Find leaf files in the input directories
+    find "$@" -mindepth 1 -type f 
+}
+export -f findLeaf
+
+flatten_keepname(){
+    ### Find leaf files in the input directories
+    set -e
+    local DIR=(`find "$@" -maxdepth 0 -type d`)
+    echo ${DIR[@]}
+    for F in `find "${DIR[@]}" -mindepth 1 -type f`
+    do
+    mv -f $PWD/$F ${F//\//_}
+    done    
+    rm -rf "${DIR[@]}" 
+}
+export -f flatten_keepname
