@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+local SELF
+SELF=`readlink -f ${BASH_SOURCE[0]}`
+SELFALI=$(bname $SELF)
 
 set -e ###exit on error
 

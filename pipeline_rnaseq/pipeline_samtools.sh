@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+local SELF
+SELF=`readlink -f ${BASH_SOURCE[0]}`
+SELFALI=$(bname $SELF)
+
 set -e ###exit on error
 
 #ADADIR="/home/Program_NGS_sl-pw-srv01/Trimmomatic-0.32/adapters"

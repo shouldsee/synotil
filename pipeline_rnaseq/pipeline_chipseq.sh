@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-SELF=${BASH_SOURCE[0]}
-SELF=`readlink -f $SELF`
+local SELF
+SELF=`readlink -f ${BASH_SOURCE[0]}`
 SELFALI=$(bname $SELF)
+
 # set -e
 ### Kind of weird here...
 source $(dirname $SELF)/activate
@@ -37,7 +38,7 @@ echo ==== Parse Input arguments
 #     ALI2=$(bname $read2)
     ALI=${ALI1%_R1_*}
 #         echo $ALI1; echo $ALI2; echo $ALI
-    LOGFILE=$ALI.pipeline_rnaseq.log
+    LOGFILE=${ALI}.${SELFALI}.log
     echo []Proposed alias ${ALI} ==
     echo []Logfile $LOGFILE
 }

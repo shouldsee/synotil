@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-SELF=${BASH_SOURCE[0]}
-SELF=`readlink -f $SELF`
+local SELF
+SELF=`readlink -f ${BASH_SOURCE[0]}`
 SELFALI=$(bname $SELF)
 
 ### Kind of weird here...

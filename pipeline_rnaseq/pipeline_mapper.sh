@@ -1,6 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+local SELF
+SELF=`readlink -f ${BASH_SOURCE[0]}`
+SELFALI=$(bname $SELF)
+
 set -e
-SELF=${BASH_SOURCE[0]}
 #source /home/feng/envs/pipeline_Bd/bin/activate
 
 ###############
@@ -70,13 +73,17 @@ mkdir -p $OUTDIR
 {
     #### echo ==== Downloading fastq files
     mkdir -p $OUTDIR
-    TEMPDIR=`preprocessor.py $INDIR/$ID | tee -a bulk.log | tail -1 `
+    ARR=(`preprocessor.py $INDIR/$ID | tee -a bulk.log`)
+#     echo ${ARR[@]}
+    TEMPDIR=${ARR[-1]}
+    echo "[TEMPDIR]=$TEMPDIR"
 }
 
 {
     #### echo ==== Running pipeline    
     cd $TEMPDIR
-    read OLDDIR <OLDDIR
+    ls .    
+    read OLDDIR < OLDDIR
 #     read1=(*_R1_raw.fastq)
 #     read2=(*_R2_raw.fastq)
     if [ $PAIR -eq 1 ]; then  
