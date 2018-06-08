@@ -35,6 +35,11 @@ To-Do:
     "
 }
 
+if [[ $# -eq 0 ]] ; then
+    show_help
+    exit 0
+fi
+
 while getopts "h?pt:" opt; do
     case "$opt" in
     h|\?)
