@@ -89,15 +89,15 @@ main()
     {
         #### echo ==== Running pipeline    
         cd $TEMPDIR
-        ls .    
+        ls -lh .
         read OLDDIR < OLDDIR
-    #     read1=(*_R1_raw.fastq)
-    #     read2=(*_R2_raw.fastq)
-        if [ $PAIR -eq 1 ]; then  
-            $PROG *_R1_raw.fastq *_R2_raw.fastq $NCORE
-        else 
-            $PROG *_R1_raw.fastq $NCORE
+        if [ $PAIR -eq 1 ]; then
+            FILE="*_R1_raw.fastq *_R2_raw.fastq"
+        else
+            FILE="*_R1_raw.fastq"
         fi
+        echo [FILE] $FILE
+        $PROG $FILE $NCORE
     }
 
     {

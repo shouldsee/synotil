@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 main(){
-
     local SELF
     SELF=`readlink -f ${BASH_SOURCE[0]}`
     SELFALI=$(bname $SELF)
@@ -96,4 +95,5 @@ main(){
         echo ---- Main program
     }  &> $LOGFILE
 }
+echo [MAIN]main "$@"
 main "$@"
