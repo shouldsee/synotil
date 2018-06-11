@@ -2,7 +2,7 @@
 
 # coding: utf-8
 
-# In[272]:
+# In[18]:
 
 
 #!/usr/bin/env python2
@@ -122,10 +122,13 @@ def gnuPara(cmd,debug=0,ncore = 6):
     return E
 
 def mp_para(f,lst,ncore = 6):
-    p = mp.Pool(ncore)
-    res = p.map_async(f,lst,)
-    res = res.get(10000000)
-    p.close()
+    if ncore ==1:
+        res = map(f,lst)
+    else:
+        p = mp.Pool(ncore)
+        res = p.map_async(f,lst,)
+        res = res.get(10000000)
+        p.close()
     return res
 
 datenow = lambda: datetime.datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
@@ -138,7 +141,8 @@ PTN = re.compile('(?P<lead>.*)_L(?P<chunk>\d+)_R(?P<read>[012])_(?P<trail>\d{1,4
 def shellexec(cmd,debug=0):
     print(cmd) 
     if not debug:
-        return os.system(cmd)
+        return subprocess.call(cmd,shell=1)
+#         return os.system(cmd)
 
 def process_rna_sample(samplePATH, debug=0):
     '''
@@ -163,8 +167,12 @@ def process_rna_sample(samplePATH, debug=0):
     
     # Create a temporary directory 
     os.system('mkdir -p %s'%WORKING_DIR)
-    temp_dir = os.path.join(WORKING_DIR,'%s-%s'%(datenow(),
-                                                os.path.basename(samplePATH)))
+    temp_dir = os.path.join(WORKING_DIR,
+                            '%s-%s'%(
+                                os.path.basename(samplePATH),
+                                datenow(),
+                            )
+    )
     os.system('mkdir -p %s'%temp_dir)
 
     #### Download raw read .fastq from samplePATH
@@ -176,11 +184,10 @@ def process_rna_sample(samplePATH, debug=0):
     cmd1 = 'cp -lr %s'%ccmd; 
     cmd2 = 'cp -r %s'%ccmd
     shellexec(cmd1) ==0 or shellexec(cmd2) 
-    shellexec('cd %s'%temp_dir)
     ODIR = os.getcwd()
     print '[ODIR]',ODIR
     try:
-        os.chdir(temp_dir)
+        os.chdir(temp_dir) #     shellexec('cd %s'%temp_dir)
 
         #### Parse .fastq filenames and assert quality checks
         if debug:
@@ -241,13 +248,11 @@ def process_rna_sample(samplePATH, debug=0):
 #         shellexec(cmd)
 
         print '[DONE!]:%s'%samplePATH
-        print temp_dir
         samplePATH = samplePATH.rstrip('/')
 #         idPath = '/'.join(samplePATH.split('/')[-3:])
         ptn = '[\^/](\d{1,4}[RC][_/].*)'
-        idPath = re.findall(ptn,s)[0]
+        idPath = re.findall(ptn,samplePATH)[0]
         os.system('echo %s >OLDDIR'%idPath)
-        
 #         exit(0)
     except Exception as e:        
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -256,6 +261,7 @@ def process_rna_sample(samplePATH, debug=0):
         raise e
     finally:
         os.chdir(ODIR)
+    print '[[WTFFF1]]'
     #### Stop here
     return temp_dir
 
@@ -279,31 +285,30 @@ def unzipAndConcat(meta,debug= 0):
         if debug:
             print cmds[:1]
         else:
-            mp_para(shellexec,cmds, ncore=NCORE)
-            
+            mp_para(shellexec,cmds, ncore=NCORE)            
         #### Remove .gz in DataFrame accordingly
         meta.loc[idx,'ext'] = [ x.rstrip('.gz')  for x in mcurr['ext'] ]
 
     ### Map metas to fnames after decompression 
     mapper = lambda x: revSub(PTN,x)
     meta['fname'] = meta.apply(mapper,axis=1)
-    # meta['fname'] = meta['
-    g = meta.groupby('lead')
+    g = meta.groupby(['lead','read'])
     cmds = [cmd_combineFastq(x[1]['fname']) for x in g]
     if debug:
         print cmds[:1]
     else:
-        mp_para(shellexec,cmds, ncore=NCORE)
+        mp_para( shellexec,cmds, ncore=NCORE)
+#     os.system('sleep 5;')
     return 
 
 def cmd_combineFastq(fnames,run=0):
     fnames = list(fnames)
     d = PTN.match(fnames[0]).groupdict()
-    cmd = 'cat {IN} >{lead}_R{read}_raw.{ext}; rm {IN};'.format(IN=' '.join(fnames),
+    cmd = 'cat {IN} >{lead}_R{read}_raw.{ext} ; rm {IN} '.format(IN=' '.join(fnames),
                                                  **d)
     return cmd
 def cmd_ungzip(F,):
-    cmd = 'gzip -d <{IN} >{OUT}; rm {IN}; '.format(IN=F,OUT=F.rstrip('.gz'))
+    cmd = 'gzip -d <{IN} >{OUT} ; rm {IN} '.format(IN=F,OUT=F.rstrip('.gz'))
     return cmd
 
 
@@ -315,13 +320,17 @@ assert len(sys.argv) >= 2,'''
         The folder should contains raw reads in .fastq(.gz) format
 '''
 NCORE = os.environ.get('NCORE',6)
+NCORE = 1
 samplePATH = sys.argv[1]
 temp_dir = process_rna_sample( samplePATH, )
 
-exit(0)
+# raise Exception('[WTF]%s'%temp_dir)
+print >>sys.stdout,temp_dir
+sys.exit(0)
+raise Exception('[ARRREE you serious???]')
 
 
-# In[16]:
+# In[23]:
 
 
 s = '/media/pw_synology3/PW_HiSeq_data/RNA-seq/Raw_data/testONLY/133R/BdPIFs-32747730/133E_23_DN-40235206'
@@ -331,17 +340,24 @@ idPath = re.findall(ptn,s)[0]
 print idPath
 
 
-# In[15]:
+# In[37]:
 
 
 SELF='preprocessor'
 if __name__=='__main__':
     get_ipython().system(u'jupyter nbconvert --to python {SELF}.ipynb')
-    get_ipython().system(u' mv {SELF}.py tmp.py; echo \\#!/usr/bin/env python2 >preprocessor.py; ')
-    get_ipython().system(u' cat tmp.py>>{SELF}.py; rm tmp.py')
+    get_ipython().system(u' mv {SELF}.py tmp.py ; echo \\#!/usr/bin/env python2 >preprocessor.py; ')
+    get_ipython().system(u' cat tmp.py>>{SELF}.py ; rm tmp.py')
 
 
-# In[205]:
+# In[36]:
+
+
+lst = ['sleep 5']*4
+res= mp_para(shellexec,lst,ncore=2)
+
+
+# In[28]:
 
 
 path = '/home/feng/syno3/PW_HiSeq_data/ChIP-seq/Raw_data/182C/Bd_ELF3-44645602/FASTQ_Generation_2018-06-06_03_43_21Z-101158414/'
