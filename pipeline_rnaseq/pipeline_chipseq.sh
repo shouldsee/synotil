@@ -12,22 +12,21 @@ main(){
     #### Hand-coded environment variables
     #### $GFF,$GTF,$IDX_HISAT,$GSIZE should have been defined before proceeds
 
-    ####### Adapter FASTA
-    export ADADIR="/home/Program_NGS_sl-pw-srv01/Trimmomatic-0.32/adapters"
-    export FA_ADAPTER="$ENVDIR/adapters/TruSeq3-SE.fa"
+#     ####### Adapter FASTA
+#     export ADADIR="/home/Program_NGS_sl-pw-srv01/Trimmomatic-0.32/adapters"
+#     export FA_ADAPTER="$ENVDIR/adapters/TruSeq3-SE.fa"
 
-    ###### Genome annotation .gtf and .gff3 (optional)
-    export GTF=$(echo "$ENVDIR/ref/annotation/*.gtf")
-    export GFF=$(echo "$ENVDIR/ref/annotation/*.gene_exons.gff3")
-    export GSIZE="${ENVDIR}/ref/genome.sizes"
+#     ###### Genome annotation .gtf and .gff3 (optional)
+#     export GTF=$(echo "$ENVDIR/ref/annotation/*.gtf")
+#     export GFF=$(echo "$ENVDIR/ref/annotation/*.gene_exons.gff3")
+#     export GSIZE="${ENVDIR}/ref/genome.sizes"
 
-    ###### BOWTIE2 index
-    A=$(ls -1 $ENVDIR/ref/Bowtie2Index/* | head -1)
-    export IDX_BOWTIE2=${A%%.*}
+#     ###### BOWTIE2 index
+#     A=$(ls -1 $ENVDIR/ref/Bowtie2Index/* | head -1)
+#     export IDX_BOWTIE2=${A%%.*}
     #### Hand-coded environment variables
     ######################################
-
-
+    
     ######################################
     echo ==== Parse Input arguments
     {
@@ -38,18 +37,55 @@ main(){
         ALI1=$(bname $read1)
     #     ALI2=$(bname $read2)
         ALI=${ALI1%_R1_*}
-    #         echo $ALI1; echo $ALI2; echo $ALI
         LOGFILE=${ALI}.${SELFALI}.log
         echo []Proposed alias ${ALI} ==
         echo []Logfile $LOGFILE
+        rm -f $LOGFILE
     }
+    {
+    
+    checkVars GTF GSIZE FA_ADAPTER REF IDX_BOWTIE2 # GFF 
+    echo "===== IMPORTANT VARS =====
+### Call
+read1=$1
+SELF=$SELF
+ALI=$ALI   ### alias
+LOGFILE=$LOGFILE
+
+### Genome
+FA_ADAPTER=$FA_ADAPTER
+GSIZE=$GSIZE
+IDX_BOWTIE2=$IDX_BOWTIE2
+
+### Not Used
+GTF=$GTF
+GFF=$GFF
+
+" | tee -a $LOGFILE
+    } 
+    
+    
+assert ()
+{
+    E_PARAM_ERR=98;
+    E_ASSERT_FAILED=99;
+    if [ -z "$2" ]; then
+        return $E_PARAM_ERR;
+    fi;
+    lineno=$2;
+    if [ ! $1 ]; then
+        echo "Assertion failed:  \"$1\".MSG:\"$3\"";
+        echo "File \"$0\", line $lineno";
+#         exit $E_ASSERT_FAILED;
+    fi
+}
+
+
 
     ######################################
     echo ==== main program
     {
         T00=`datefloat`
-
-
 
         echo 'command,time(s)'>$ALI.time
         #######################
@@ -76,7 +112,6 @@ main(){
         cleanup() {
             set -e
             ALI=$1
-            mkdir -p output
             ln -f *.log *.time output/
     #         ln -f *.count *.gtf output/
             ln -f *.bw *.bdg output/
@@ -84,6 +119,8 @@ main(){
             ln -f fastqc/*.html output/
         }
 
+        mkdir -p output
+        touch output/DESCRIPTION
         cleanup ${ALI} &>${ALI}.cleanup.log
         assert "$? -eq 0" $LINENO "Output/cleanup failed"
 

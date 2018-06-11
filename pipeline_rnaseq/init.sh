@@ -35,30 +35,34 @@ echo ---- Installing binaries
 
 
 
-############################################
-echo ==== Preparing different FASTA files =====
-#### Prepare adapter fasta
-mkdir -p $PWD/adapters
-ln -sf $TRIMDIR/adapters/* adapters
-cd adapters
-if [ ! -e "TruSeq3-PE-all.fa" ]; then
-#     :
-# else
-    cat TruSeq3-PE*.fa >TruSeq3-PE-all.fa
-fi
-cd ..
+# ############################################
+# echo ==== Preparing different FASTA files =====
+# #### Prepare adapter fasta
+# mkdir -p $PWD/adapters
+# ln -sf $TRIMDIR/adapters/* adapters
+# cd adapters
+# if [ ! -e "TruSeq3-PE-all.fa" ]; then
+# #     :
+# # else
+#     cat TruSeq3-PE*.fa >TruSeq3-PE-all.fa
+# fi
+# cd ..
 
-#### Index genome.fa
-mkdir -p $PWD/ref
-#ln -s /home/ref_genew/Brachypodium_Bd21_v3.1/assembly/Bdistachyon_314_v3.0.fa ref/genome.fa
-ln -sf /home/ref_genew/Brachypodium_Bd21_v3.1/* ref
-ln -sf $PWD/ref/assembly/*.fa ref/genome.fa
-faidx ref/genome.fa -i chromsizes > ref/genome.sizes
+# #### Index genome.fa
+# mkdir -p $PWD/ref
+# #ln -s /home/ref_genew/Brachypodium_Bd21_v3.1/assembly/Bdistachyon_314_v3.0.fa ref/genome.fa
+# ln -sf /home/ref_genew/Brachypodium_Bd21_v3.1/* ref
+# ln -sf $PWD/ref/assembly/*.fa ref/genome.fa
+# faidx ref/genome.fa -i chromsizes > ref/genome.sizes
+# echo ---- Preparing different FASTA files ----
+# ############################################
+
 
 ORIGIN=`readlink -f ${SELF%/*}`
 cp -u $ORIGIN/activate.sh bin/activate
 cp -u $ORIGIN/*.sh bin/
+cp -uR $ORIGIN/config config
 echo export ORIGIN=$ORIGIN >> bin/activate
 
-echo ---- Preparing different FASTA files ----
-############################################
+
+

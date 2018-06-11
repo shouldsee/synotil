@@ -99,7 +99,8 @@ main()
         echo [FILE] $FILE
         $PROG $FILE $NCORE
     }
-
+#     return 0
+    
     {
         #### echo ==== Uploading outputs
         OUTALI=${PROG%.*}/$OLDDIR
@@ -109,5 +110,6 @@ main()
     cd ..
 
     echo "[FINISH]: Outputed to $OUTDIR/$OLDDIR"
+    return 0
 }
 main "$@"
