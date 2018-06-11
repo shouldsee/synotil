@@ -119,7 +119,7 @@ bam2bigwig() {
     genomeCoverageBed -ibam $BAM -bg -split > $ALI.bdg 
     bedGraphToBigWig $ALI.bdg $GSIZE $ALI.bw 
     bamCoverage --normalizeUsing $NORM --skipNAs --effectiveGenomeSize `size2sum $GSIZE` \
-      --smoothLength 10 --binSize 10 \
+      --smoothLength 10 --binSize 10 -p ${NCORE:-1} \
       -b $BAM -o ${ALI}_${NORM}.bw
 }
 export -f bam2bigwig
@@ -289,3 +289,37 @@ flatten_keepname(){
     rm -rf "${DIR[@]}" 
 }
 export -f flatten_keepname
+
+indexGenome ()
+{
+    F=$(echo *.fa);
+    faidx -i chromsizes $F > ${F%.fa}.sizes
+}
+export -f indexGenome
+
+checkVars ()
+{
+    for F in "$@";
+    do
+        FILE=${!F};
+#         echo [FILE]=$FILE
+#         [[ ! -z "$FILE" ]] || { echo $F variable not set ; exit 255 ; } 
+        if [[ -z "$FILE" ]]; then echo $F variable not set; exit 255 ; fi
+        echo [Test] $F=$FILE;
+#         [[ -f "$FILE" ]] || [[ -d "$FILE" ]] || ls -l ${FILE}* || { echo "$F=$FILE does not exists!" ;  exit 255 ; }
+        if [[ -f "$FILE" ]]; then : 
+        else
+            if [[ -d "$FILE" ]]; then
+                :
+            else 
+                ls -l ${FILE}* || { echo "$F=$FILE does not exists!" ;  exit 255 ; }
+            fi 
+        fi
+    done
+}
+export -f checkVars
+
+tabCut(){
+    cut -f"$2" -d$'\t' $1
+}
+export -f tabCut
