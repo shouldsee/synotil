@@ -122,6 +122,7 @@ def mp_para(f,lst,ncore = 6):
         res = p.map_async(f,lst,)
         res = res.get(10000000)
         p.close()
+        p.join()
     return res
 
 datenow = lambda: datetime.datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
@@ -272,7 +273,7 @@ def unzipAndConcat(meta,debug= 0):
 def cmd_combineFastq(fnames,run=0):
     fnames = sorted(list(fnames))
     d = PTN.match(fnames[0]).groupdict()
-    cmd = 'cat {IN} >{lead}_R{read}_raw.{ext} ; rm {IN} '.format(IN=' '.join(fnames),
+    cmd = 'cat {IN} >{lead}_R{read}_raw.{ext} ; sleep 0; rm {IN} '.format(IN=' '.join(fnames),
                                                  **d)
     return cmd
 def cmd_ungzip(F,):
@@ -290,9 +291,9 @@ if __name__=='__main__':
     # NCORE = 1
     samplePATH = sys.argv[1]
     temp_dir = process_rna_sample( samplePATH, )
-
+#     for i in range(10):
+#         os.system('sleep 0.5')
+#         print i*0.5
     # raise Exception('[WTF]%s'%temp_dir)
     print >>sys.stdout,temp_dir
     sys.exit(0)
-
-    raise Exception('[ARRREE you serious???]')
