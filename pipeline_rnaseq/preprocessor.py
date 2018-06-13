@@ -1,11 +1,4 @@
 #!/usr/bin/env python2
-
-# coding: utf-8
-
-# In[18]:
-
-
-#!/usr/bin/env python2
 # Usage: (python) preprocessor.py /path/to/FASTQ_DIR
 # Example: preprocessor.py /media/pw_synology3/PW_HiSeq_data/RNA-seq/Raw_data/testONLY/133R/BdPIFs-32747730/133E_23_DN-40235206
 # Purpose: Download fastq files from the supplied path and 
@@ -165,16 +158,27 @@ def process_rna_sample(samplePATH, debug=0):
     DESTINATION_DIR  ='"/path/to/output/"' 
     WORKING_DIR='.'
     
+    ### Extract  RunID from samplePATH
+    samplePATH = samplePATH.rstrip('/')
+    ptn = '[\^/](\d{1,4}[RC][_/].*)'
+    ridPath = re.findall(ptn,samplePATH)
+    assert len(ridPath)==1,'[ERROR] Cannot extract RunID from path name:"%s"'%samplePATH
+    ridPath = ridPath[0]
+
     # Create a temporary directory 
     os.system('mkdir -p %s'%WORKING_DIR)
     temp_dir = os.path.join(WORKING_DIR,
                             '%s-%s'%(
-                                os.path.basename(samplePATH),
+                                ridPath.replace('/','-'),
+#                                 os.path.basename(samplePATH),
                                 datenow(),
                             )
     )
     os.system('mkdir -p %s'%temp_dir)
 
+    
+
+    
     #### Download raw read .fastq from samplePATH
 #     print samplePATH
     FILES = glob.glob('%s/*' % samplePATH)
@@ -190,6 +194,7 @@ def process_rna_sample(samplePATH, debug=0):
         os.chdir(temp_dir) #     shellexec('cd %s'%temp_dir)
 
         #### Parse .fastq filenames and assert quality checks
+#         print '[MSG] found leaves','\n'.join(FILES)
         if debug:
             FS = [x.rsplit('/')[-1] for x in  FILES]
             print FS[:5]
@@ -204,55 +209,18 @@ def process_rna_sample(samplePATH, debug=0):
             d['data']['fname'] = d['fname']
         data = [x['data'] for x in PARSED]
         meta = pd.DataFrame(data)
-        meta = check_L004(meta)
-        
+
         if debug:
             return meta
         else:
-            unzipAndConcat(meta)
-#             print '\n\n[BUF]',BUF
-#             print PARSED
-#             return data
-#         meta =  pd.DataFrame(index = data)
-
-#         R1 = [d for d in PARSED if d['data']['read']=='1']
-#         R2 = [d for d in PARSED if d['data']['read']=='2']
-#         Rboth = R1+R2
-#         common_names = set(d['data']['lead'] for d in Rboth)
-#         assert len(common_names) == 1,'Common leading strings are not unique: %s' % common_names
-#         common_name = common_names.pop()
-#         alias = common_name
-
-#         CHU1=sorted(d['data']['chunk'] for d in R1)
-#         CHU2=sorted(d['data']['chunk'] for d in R2)
-#         assert  CHU1 == CHU2,'Counts of R1/R2 chunks disagree, R1:%s R2:%s '%(CHU1,CHU2) 
-#         assert len(CHU1) >= 4,'Counts of R1/R2 chunks: Actual %d Expected: >= 4 ' %len(CHU1) 
-
-#         R1name = sorted((d['fname'] for d in R1),)
-#         R2name = sorted((d['fname'] for d in R2),)
-#         print R1name,'\n',R2name ### debug printout
-
-#         #### Unzip where required
-#         FS = [F for F in [d['fname'] for d in Rboth] if F.endswith('gz')]
-#         cmd = '\n'.join(['gzip -d <%s >%s; sleep 0'% (F,F.rstrip('.gz')) 
-#                          if not os.path.exists(F.rstrip('.gz')) 
-#                          else '## gzip -d skipped since fastq exists for %s' % F for F in FS])
-
-#     #     gnuPara(cmd,debug=0,ncore= 1)
-#         mp_para(shellexec,cmd.splitlines(),ncore=NCORE)
-#         R1name = [n.rstrip('.gz') for n in R1name]
-#         R2name = [n.rstrip('.gz') for n in R2name]    
-
-#         cmd = 'cat %s >%s_R1_raw.fastq' % (' '.join(R1name)  ,alias)
-#         cmd +='\ncat %s >%s_R2_raw.fastq' % (' '.join(R2name),alias)
-#         shellexec(cmd)
-
+            pass
+        meta = check_L004(meta)
+        meta = meta.sort_values(['lead','read','chunk'])
+        unzipAndConcat(meta)
+            
         print '[DONE!]:%s'%samplePATH
-        samplePATH = samplePATH.rstrip('/')
-#         idPath = '/'.join(samplePATH.split('/')[-3:])
-        ptn = '[\^/](\d{1,4}[RC][_/].*)'
-        idPath = re.findall(ptn,samplePATH)[0]
-        os.system('echo %s >OLDDIR'%idPath)
+
+        os.system('echo %s >OLDDIR'%ridPath)
 #         exit(0)
     except Exception as e:        
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -283,7 +251,7 @@ def unzipAndConcat(meta,debug= 0):
         mcurr = meta.iloc[idx]
         cmds = [cmd_ungzip(x) for x in mcurr['fname']]
         if debug:
-            print cmds[:1]
+            print '\n'.join(cmds[:1])
         else:
             mp_para(shellexec,cmds, ncore=NCORE)            
         #### Remove .gz in DataFrame accordingly
@@ -295,74 +263,36 @@ def unzipAndConcat(meta,debug= 0):
     g = meta.groupby(['lead','read'])
     cmds = [cmd_combineFastq(x[1]['fname']) for x in g]
     if debug:
-        print cmds[:1]
+        print '\n'.join(cmds[:1])
     else:
         mp_para( shellexec,cmds, ncore=NCORE)
 #     os.system('sleep 5;')
     return 
 
 def cmd_combineFastq(fnames,run=0):
-    fnames = list(fnames)
+    fnames = sorted(list(fnames))
     d = PTN.match(fnames[0]).groupdict()
     cmd = 'cat {IN} >{lead}_R{read}_raw.{ext} ; rm {IN} '.format(IN=' '.join(fnames),
                                                  **d)
     return cmd
 def cmd_ungzip(F,):
-    cmd = 'gzip -d <{IN} >{OUT} ; rm {IN} '.format(IN=F,OUT=F.rstrip('.gz'))
+    cmd = 'gzip -d <{IN} >{OUT} ; sleep 0 ; rm {IN} '.format(IN=F,OUT=F.rstrip('.gz'))
     return cmd
-
-
-# In[ ]:
-
 
 assert len(sys.argv) >= 2,'''
     Usage: (python) map-RNA-seq.py /path/to/folder/
         The folder should contains raw reads in .fastq(.gz) format
 '''
-NCORE = os.environ.get('NCORE',6)
-NCORE = 1
-samplePATH = sys.argv[1]
-temp_dir = process_rna_sample( samplePATH, )
 
-# raise Exception('[WTF]%s'%temp_dir)
-print >>sys.stdout,temp_dir
-sys.exit(0)
-raise Exception('[ARRREE you serious???]')
-
-
-# In[23]:
-
-
-s = '/media/pw_synology3/PW_HiSeq_data/RNA-seq/Raw_data/testONLY/133R/BdPIFs-32747730/133E_23_DN-40235206'
-import re
-ptn = '[\^/](\d{1,4}[RC][_/].*)'
-idPath = re.findall(ptn,s)[0]
-print idPath
-
-
-# In[37]:
-
-
-SELF='preprocessor'
 if __name__=='__main__':
-    get_ipython().system(u'jupyter nbconvert --to python {SELF}.ipynb')
-    get_ipython().system(u' mv {SELF}.py tmp.py ; echo \\#!/usr/bin/env python2 >preprocessor.py; ')
-    get_ipython().system(u' cat tmp.py>>{SELF}.py ; rm tmp.py')
+    NCORE = int(os.environ.get('NCORE',6))
+    print '[NCORE]=',NCORE
+    # NCORE = 1
+    samplePATH = sys.argv[1]
+    temp_dir = process_rna_sample( samplePATH, )
 
+    # raise Exception('[WTF]%s'%temp_dir)
+    print >>sys.stdout,temp_dir
+    sys.exit(0)
 
-# In[36]:
-
-
-lst = ['sleep 5']*4
-res= mp_para(shellexec,lst,ncore=2)
-
-
-# In[28]:
-
-
-path = '/home/feng/syno3/PW_HiSeq_data/ChIP-seq/Raw_data/182C/Bd_ELF3-44645602/FASTQ_Generation_2018-06-06_03_43_21Z-101158414/'
-res = process_rna_sample(path,debug=1)
-
-NCORE = 4
-res = process_rna_sample(path,debug=0)
-
+    raise Exception('[ARRREE you serious???]')
