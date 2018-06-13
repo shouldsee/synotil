@@ -11,6 +11,7 @@ main(){
 
     INPUT=$1
     GSIZE=$2
+    NCORE=${3:-1}
 
     T0=`datefloat`
     MSG="QC .dedup.bam and convert to .bdg .bw"

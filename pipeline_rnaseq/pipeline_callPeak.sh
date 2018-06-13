@@ -122,7 +122,7 @@ Required environment variables:
             echo $CMD ; [[ ! -z $DRY ]] || eval $CMD
             
             REMDIR=`dirname $IN`                   
-            CMD="cp -R $OUTDIR -t $REMDIR"  
+            CMD="cp -R `readlink -f $OUTDIR` -t $REMDIR"  
             echo "$CMD" | tee push.sh
             if [[ ! -z "$TARGET" ]]; then
                 [[ ! -z $DRY ]] || . push.sh

@@ -4,7 +4,8 @@
 
 ####### Adapter FASTA
 export ADADIR="/home/Program_NGS_sl-pw-srv01/Trimmomatic-0.32/adapters"
-export FA_ADAPTER="$ENVDIR/adapters/TruSeq3-SE.fa"
+export FA_ADAPTER_SE="$ADADIR/adapters/TruSeq3-SE.fa"
+export FA_ADAPTER_PE="$ADADIR/adapters/TruSeq3-PE-2.fa"
 
 ###### Genome annotation .gtf and .gff3 (optional)
 export GTF=$(echo "$ENVDIR/ref/annotation/*.gtf")

@@ -37,7 +37,7 @@ main()
     cd $OUTDIR
 
 
-    SETTING="ILLUMINACLIP:${FA_ADAPTER}:6:30:10"
+    SETTING="ILLUMINACLIP:${FA_ADAPTER_PE}:6:30:10"
     SETTING="$SETTING LEADING:3 TRAILING:3 MINLEN:36 SLIDINGWINDOW:4:15"
     CMD="trimmomatic PE -threads $NCORE -$PHRED $read1 $read2 ${ALI1}_pass.fastq ${ALI1}_fail.fastq ${ALI2}_pass.fastq ${ALI2}_fail.fastq $SETTING" 
 

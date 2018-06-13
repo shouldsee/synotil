@@ -207,7 +207,7 @@ flatten(){
     BNAME=`basename $1`
     local ODIR=${2:-${BNAME}_flat}
     mkdir -p $ODIR
-    find $1 -mindepth 1 -type f -exec ln -f -t $ODIR  -i '{}' +
+    find $1 -mindepth 1 -type f -exec ln -f -t $ODIR '{}' +
 }
 export -f flatten
 
@@ -323,3 +323,28 @@ tabCut(){
     cut -f"$2" -d$'\t' $1
 }
 export -f tabCut
+addFunc () 
+{ 
+    func=$1;
+    type $func | tail -n +2;
+    echo export -f $func
+}
+export -f addFunc
+erun () 
+{ 
+    local CMD="$@";
+    SHELOG=${SHELOG:-log.sh};
+    echo "$CMD" >> $SHELOG && eval "$CMD"
+}
+export -f erun
+bamHist () 
+{ 
+    NCORE=${NCORE:-4};
+    BAM=$1;
+    [[ -e ${1}.bai ]] || { echo $1 is not indexed, now indexing ; samtools index $1 ; } 
+    ALI=`bname $BAM`;
+    CMD="bamPEFragmentSize -b $BAM -o ${ALI}_bamHist.png -p $NCORE >${ALI}_bamHist.log";
+    erun $CMD
+}
+export -f bamHist
+

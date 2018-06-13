@@ -71,7 +71,7 @@ main(){
         pipeline_picard.sh ${ALI}.sorted.bam $NCORE
         assert "$? -eq 0" $LINENO "Picard Deduplication failed"
 
-        pipeline_bamqc.sh ${ALI}.bam $GSIZE 
+        pipeline_bamqc.sh ${ALI}.bam $GSIZE $NCORE
         assert "$? -eq 0" $LINENO "BAMQC/conversion failed"
 
         CMD="stringtie -p $NCORE --rf ${ALI}.bam -G $GTF -o ${ALI}.stringtie.gtf -A ${ALI}.stringtie.count &> ${ALI}.stringtie.log"
