@@ -13,6 +13,7 @@ import tempfile,subprocess
 import os, sys, datetime, glob, re
 import multiprocessing as mp
 import pandas as pd
+import ptn
 
 
 # shellexec = os.system
@@ -161,8 +162,9 @@ def process_rna_sample(samplePATH, debug=0):
     
     ### Extract  RunID from samplePATH
     samplePATH = samplePATH.rstrip('/')
-    ptn = '[\^/](\d{1,4}[RC][_/].*)'
-    ridPath = re.findall(ptn,samplePATH)
+#     ptn = '[\^/](\d{1,4}[RC][_/].*)'
+#     ridPath = re.findall(ptn,samplePATH)
+    ridPath = re.findall(ptn.runID,samplePATH)
     assert len(ridPath)==1,'[ERROR] Cannot extract RunID from path name:"%s"'%samplePATH
     ridPath = ridPath[0]
 
@@ -205,7 +207,7 @@ def process_rna_sample(samplePATH, debug=0):
         else:
             FS = glob.glob('*')
         BUF = '\n'.join(FS)
-        PARSED = [{'fname':m.group(0),'data':m.groupdict()} for m in re.finditer(PTN,BUF)]
+        PARSED = [{'fname':m.group(0),'data':m.groupdict()} for m in re.finditer(ptn.baseSpace,BUF)]
         for d in PARSED:
             d['data']['fname'] = d['fname']
         data = [x['data'] for x in PARSED]
@@ -259,7 +261,7 @@ def unzipAndConcat(meta,debug= 0):
         meta.loc[idx,'ext'] = [ x.rstrip('.gz')  for x in mcurr['ext'] ]
 
     ### Map metas to fnames after decompression 
-    mapper = lambda x: revSub(PTN,x)
+    mapper = lambda x: revSub(ptn.baseSpace,x)
     meta['fname'] = meta.apply(mapper,axis=1)
     g = meta.groupby(['lead','read'])
     cmds = [cmd_combineFastq(x[1]['fname']) for x in g]
@@ -272,7 +274,7 @@ def unzipAndConcat(meta,debug= 0):
 
 def cmd_combineFastq(fnames,run=0):
     fnames = sorted(list(fnames))
-    d = PTN.match(fnames[0]).groupdict()
+    d = ptn.baseSpace.match(fnames[0]).groupdict()
     cmd = 'cat {IN} >{lead}_R{read}_raw.{ext} ; sleep 0; rm {IN} '.format(IN=' '.join(fnames),
                                                  **d)
     return cmd
