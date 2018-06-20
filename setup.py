@@ -7,6 +7,6 @@ setup(name='synotil',
       author='Feng Geng',
       author_email='shouldsee.gem@gmail.com',
       url='none',
-      package_dir = {'synotil': 'pipeline_rnaseq'},
-      packages=['synotil', ],
+      package_dir = {'': 'pipeline_rnaseq'},
+      packages=['', ],
      )
