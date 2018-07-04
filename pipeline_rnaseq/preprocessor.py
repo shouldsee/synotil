@@ -164,9 +164,10 @@ def process_rna_sample(samplePATH, debug=0):
     samplePATH = samplePATH.rstrip('/')
 #     ptn = '[\^/](\d{1,4}[RC][_/].*)'
 #     ridPath = re.findall(ptn,samplePATH)
-    ridPath = re.findall(ptn.runID,samplePATH)
+    ridPath = re.findall(ptn.runCond,samplePATH)
     assert len(ridPath)==1,'[ERROR] Cannot extract RunID from path name:"%s"'%samplePATH
-    ridPath = ridPath[0]
+    ridPath = ridPath[0][-1]
+    print '[ridPath]',ridPath
 
     # Create a temporary directory 
     os.system('mkdir -p %s'%WORKING_DIR)
