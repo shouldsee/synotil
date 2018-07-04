@@ -10,8 +10,8 @@ main(){
 
     echo ==== Parse Input arguments
     {
-        read1=$1 ####  e.g. test_R1_.fastq
-        read2=$2 ####  e.g. test_R2_.fastq
+        read1=`echo $1` ####  e.g. test_R1_.fastq
+        read2=`echo $2` ####  e.g. test_R2_.fastq
         NCORE=${3:-6} #### number of threads, default to 6
         DIR=$PWD
         ALI1=$(bname $read1)

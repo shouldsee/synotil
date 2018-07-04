@@ -8,26 +8,6 @@ main(){
     ### Kind of weird here...
     source $(dirname $SELF)/activate
 
-    ######################################
-    #### Hand-coded environment variables
-    #### $GFF,$GTF,$IDX_HISAT,$GSIZE should have been defined before proceeds
-
-    ####### Adapter FASTA
-    export ADADIR="/home/Program_NGS_sl-pw-srv01/Trimmomatic-0.32/adapters"
-    export FA_ADAPTER="$ENVDIR/adapters/TruSeq3-PE-all.fa"
-
-    ###### Genome annotation .gtf and .gff3 (optional)
-    export GTF=$(echo "$ENVDIR/ref/annotation/*.gtf")
-    export GFF=$(echo "$ENVDIR/ref/annotation/*.gene_exons.gff3")
-    export GSIZE="${ENVDIR}/ref/genome.sizes"
-
-    ###### HISAT2 index
-    A=$(ls -1 $ENVDIR/ref/HISAT2Index/* | head -1)
-    export IDX_HISAT=${A%%.*}
-
-    #### Hand-coded environment variables
-    ######################################
-
 
     ######################################
     echo ==== Parse Input arguments
@@ -37,19 +17,26 @@ main(){
         NCORE=${3:-6} #### number of threads, default to 6
         DIR=$PWD
         ALI1=$(bname $read1)
-        ALI2=$(bname $read2)
+#         ALI2=$(bname $read2)
         ALI=${ALI1%_R1_*}
     #         echo $ALI1; echo $ALI2; echo $ALI
-        LOGFILE=$ALI.pipeline_rnaseq.log
+        LOGFILE=${ALI}.${SELFALI}.log
         echo []Proposed alias ${ALI} ==
         echo []Logfile $LOGFILE
     }
+    
+    {
+    echo "===== IMPORTANT VARS ====="
+    checkVars read1 read2 SELF LOGFILE 
+    echo "===== Genome Vars ====="
+    checkVars GSIZE FA_ADAPTER_PE REF IDX_HISAT2 
+    #checkVars GTF  GFF 
+    } | tee -a $LOGFILE    
 
     ######################################
     echo ==== main program
     {
         T00=`datefloat`
-
 
 
         echo 'command,time(s)'>$ALI.time
@@ -62,7 +49,7 @@ main(){
         pipeline_trim_pe.sh $read1 $read2 $NCORE 
         assert "$? -eq 0" $LINENO "Trimmomatic/fastqc failed"
 
-        pipeline_hisat.sh  $ALI1.fastq  $ALI2.fastq $IDX_HISAT $NCORE
+        pipeline_hisat.sh  *R1*.fastq  *R2*.fastq $IDX_HISAT2 $NCORE
         assert "$? -eq 0" $LINENO "HISAT2 failed"
 
         pipeline_samtools.sh ${ALI}.sam $NCORE
@@ -85,17 +72,20 @@ main(){
         assert "$? -eq 0" $LINENO "Stringtie failed"
 
 
-        CMD="htseq-count -s reverse -f bam ${ALI}.bam $GTF -r pos -o $ALI.htseq.sam >$ALI.htseq.count 2>${ALI}.htseq.log"
-        ##### trying out -s parameter
-        #CMD="htseq-count -s yes -f bam ${ALI}.bam $GTF -r pos -o $ALI.htseq.sam >$ALI.htseq.count 2>${ALI}.htseq.log"
-        {   
-            T0=`datefloat`
-            echo $CMD
-            time `eval $CMD`
-            DUR=$(echo $(datefloat) - $T0 | bc)
-            ARR=($CMD); echo $(which ${ARR[0]}),$DUR >>$ALI.time 
-        }
-        assert "$? -eq 0" $LINENO "HTSeq-count failed"
+
+##### hiseq-count is tooooo slow hence disabled
+
+#         CMD="htseq-count -s reverse -f bam ${ALI}.bam $GTF -r pos -o $ALI.htseq.sam >$ALI.htseq.count 2>${ALI}.htseq.log"
+#         ##### trying out -s parameter
+#         #CMD="htseq-count -s yes -f bam ${ALI}.bam $GTF -r pos -o $ALI.htseq.sam >$ALI.htseq.count 2>${ALI}.htseq.log"
+#         {   
+#             T0=`datefloat`
+#             echo $CMD
+#             time `eval $CMD`
+#             DUR=$(echo $(datefloat) - $T0 | bc)
+#             ARR=($CMD); echo $(which ${ARR[0]}),$DUR >>$ALI.time 
+#         }
+#         assert "$? -eq 0" $LINENO "HTSeq-count failed"
 
 
 
