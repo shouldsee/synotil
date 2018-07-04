@@ -118,7 +118,7 @@ bam2bigwig() {
     #### -split argument is essential !!!
     genomeCoverageBed -ibam $BAM -bg -split > $ALI.bdg 
     bedGraphToBigWig $ALI.bdg $GSIZE $ALI.bw 
-    bamCoverage --normalizeUsing $NORM --skipNAs --effectiveGenomeSize `size2sum $GSIZE` \
+    bamCoverage --normalizeUsing $NORM --effectiveGenomeSize `size2sum $GSIZE` \
       --smoothLength 10 --binSize 10 -p ${NCORE:-1} \
       -b $BAM -o ${ALI}_${NORM}.bw
 }
@@ -348,3 +348,125 @@ bamHist ()
 }
 export -f bamHist
 
+
+GTF2CDSR(){
+    IN=$1
+    OFILE=${2:-$(basename $IN).cds}
+    gtf2bed< $IN  | sed "s/\"//g" | grep CDS >tmp
+    cat tmp | sort -k1,1 -k4,4 -k5,5 -k6,6  | bedtools groupby -g 1,4,5,6 -c 2,3,8 -o min,max,first \
+    | awk -v OFS='\t' '{print $1, $5, $6, $2, $3, $4, $7, $8}' \
+    > $OFILE
+    echo "[GTF2CDSR] saved to $OFILE"
+}
+export -f GTF2CDSR
+
+# |  awk -v OFS='\t' '{print $1, $2, $3, $4, $5}'>tmp.cds
+# cat tmp | bedtools groupby -g 1,4,5,6 -c 2,3,8 -o min,max,first >tmp.cds
+# head *.cds
+# gtf2CDSR
+autoinstallPython () 
+{ 
+    local BASE=$1;
+    cd $BASE && ls -1 */*.py | entr ./setup.py install --user
+}
+export -f autoinstallPython
+
+
+sortAll()
+{
+IN=$1
+tr x '\000' < $IN | sort | tr '\000' x
+}
+export -f sortAll
+
+fastq2seq () 
+{ 
+    IN=$1;
+    paste - - - - < $IN | cut -f2 > $(basename $IN).raw
+}
+export -f fastq2seq
+
+uniqCount () 
+{ 
+    IN=$1;
+    OUT=$(basename $IN).count;
+    wc -l $IN > $OUT;
+    cat $IN | sort | uniq -c | sort -nr >> $OUT
+}
+export -f uniqCount
+quickFasta()
+{
+    IN=$1
+    FI=${2:-$FA_GENOME}
+    checkVars IN FI
+    OUT=`basename ${IN%.*}`.fa
+    bedtools getfasta -s -fi $FI -bed $IN -fo $OUT 
+}
+export -f quickFasta
+
+wrapper_meme ()
+{ 
+    IN=$2;
+    PROG=$1;
+    ARG="${@:3}";
+    ODIR="${ARG// /_}";
+    ODIR="${ODIR//-/=}";
+    CMD="$PROG $ARG -oc $ODIR $IN *.fa";
+    echo $CMD;
+    $CMD 2>&1 | tee ${ODIR}/${PROG}.log
+}
+export -f wrapper_meme
+cmd2dir(){
+    local PROG=$1
+    ARG="${@:2}"
+    ADIR="${ARG// /_}"
+    ADIR="${ADIR//-/=}";
+    ODIR="PROG=${PROG}_${ADIR}";
+    echo $ODIR
+}
+export -f cmd2dir
+
+routine_mast()
+{
+    local PROG=mast
+    local IN1=$1
+    local IN2=$2    
+    local ALI1=`basename ${IN1%.*}`
+    local ALI2=`basename ${IN2%.*}`
+    local OPT="${@:3}"
+    local OPT="-w -remcor $OPT"
+    local ODIR=`cmd2dir $PROG $OPT $ALI1 $ALI2`; mkdir -p $ODIR
+#     echo []PROG=$PROG
+#     echo []OPT=$OPT
+#     echo []ODIR=$ODIR
+#     type cmd2dir
+    local CMD="$PROG -oc $ODIR $OPT $IN1 $IN2"
+    echo $CMD
+    [[ $DRY -eq 1 ]] || $CMD 2>&1 | tee $ODIR/${PROG}.log
+}   
+export -f routine_mast
+
+cpLink()
+{
+    cp -l "$@" || cp "$@"
+}  
+export -f cpLink
+runWithTimeLog()
+{
+    local CMD="$@"
+    local ALI=${ALI:-testALI}
+    local PROG=${PROG:-testPROG}
+    local T0 T1 Tdiff
+    local SELF=${SELF:-testScript.sh}
+    
+#     echo $CMD
+    [[ $DRY -eq 1 ]] || {
+        T0=`datefloat`
+        $CMD 2>&1 | tee ${ALI}.${PROG}.log 
+        T1=`datefloat`
+        Tdiff=`echo $T1 - $T0 | bc`
+        echo $SELF,$Tdiff,\"$CMD\"
+    }
+}
+export -f runWithTimeLog
+    
