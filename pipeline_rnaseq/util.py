@@ -8,15 +8,24 @@
 #### Written for BrachyPhoton at SLCU
 
 
-# In[46]:
+# In[38]:
 
 
 if __name__=='__main__':
-    get_ipython().system(u'jupyter nbconvert --to python tmp.ipynb')
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[88]:
+# In[34]:
+
+
+def to_tsv(df,fname,header= None,index=None, **kwargs):
+#     df =df.reset_index()[[0,1,2,'index',4,5,6]]
+    df.to_csv(fname,sep='\t',header= header, index= index, **kwargs)
+    return fname
+
+
+# In[ ]:
 
 
 INDEX = '/media/pw_synology3/BrachyPhoton/raw/index'
@@ -123,11 +132,11 @@ def histoLine(xs,BINS=None,log= 0,**kwargs):
         pass
     l =plt.plot(ct,ys,**kwargs)
     return l
-def qc_Avg(C,axs = None,silent=1):
+def qc_Avg(C,axs = None,xlim = None,ylim = None, silent=1):
     if axs is None:
         if not silent:
             fig,axs= plt.subplots(1,3,figsize=[14,3])
-    assert C.shape[1]<100
+    assert C.shape[1]<150
     MEAN = C.mean(axis=1,keepdims=1).squeeze()
     STD = C.std(axis=1,keepdims = 1).squeeze()
     # plt.hist(X) 
@@ -138,16 +147,19 @@ def qc_Avg(C,axs = None,silent=1):
     BINS = np.linspace(MIN,MAX,100)
     CV = STD/MEAN
     if not silent:
-        BX = np.linspace(*np.span(MEAN,99.9),num=30)
-        BY = np.linspace(*np.span(STD,99.9),num=50)
-        xlim = np.span(BX)
-        ylim = np.span(BY)
+        xlim = xlim if xlim is not None else np.span(MEAN,99.9)
+        ylim = ylim if ylim is not None else np.span(STD,99.9)
+        BX = np.linspace(*xlim, num=30)
+        BY = np.linspace(*ylim, num=50)
+#         xlim = np.span(BX)
+#         ylim = np.span(BY)
         plt.sca(axs[0])
         for i in range(1):
             histoLine(X[i],BINS,alpha=0.4)
 
         plt.grid(1)
         plt.xlabel('$E(X)$')
+        plt.xlim(xlim)
 
         plt.sca(axs[1])
 
@@ -228,18 +240,44 @@ def abline(k=1,y0=0):
 def subset(dfs,idx):
     return [df.iloc[idx] for df in dfs]
 
+def qc_Scatter(x,y,xlab='x',ylab='y',axs = None,bins=(40,40)):
+    if axs is None:
+        fig,axs= plt.subplots(1,2,figsize=[14,3])
+    for v in ['x','y']:
+        if isinstance(eval(v),pd.Series):
+            exec('{v}lab={v}.name'.format(v=v))
+    plt.sca(axs[1])
+    ct,binx,biny = np.histogram2d(x,y,bins=bins)
+    plt.pcolormesh(binx,biny, log2p1(ct.T))    
 
-# In[35]:
+    plt.sca(axs[0])
+    plt.scatter(x,y,2)
+    plt.xlim(pyutil.np.span(binx))
+    plt.ylim(pyutil.np.span(biny))
+    abline()
+    
+    R2 = np.corrcoef(x,y)[0,1] ** 2
+    
+    for ax in axs:
+        plt.sca(ax)
+        plt.grid()
+        plt.xlabel(xlab)
+        plt.ylabel(ylab)
+    plt.suptitle('$R^2=%.4f$'%R2)
+    return fig,axs
+
+
+# In[30]:
 
 
 #### I/O utility
 
-def combine_csv(fnames):
+def combine_csv(fnames,CUTOFF=6,idCol = 'Gene ID'):
     geneSet = set()
     dfs = []
-    CUTOFF = 6
+#     CUTOFF = 6
 
-    FCOL = 'Coverage'
+#     FCOL = 'Coverage'
     geneAll = set()
     geneAny = set()
     geneRef = pd.DataFrame()
@@ -247,9 +285,10 @@ def combine_csv(fnames):
     for i,fname in enumerate(fnames):
         if not i%10:
             print 'Reading %s'%fname
-        df = pd.read_table(fname)
-        allGene = df['Gene ID']
-        exprGene = allGene.loc[df[FCOL]>CUTOFF]    
+        df = pd.read_table(fname).rename(columns={idCol:'Gene ID'})
+        allGene = df  
+        exprGene = allGene
+#         exprGene = allGene.loc[df[FCOL]>=CUTOFF]    
 
         geneDiff = set(allGene).difference(geneAll)    
         appd = df[allGene.isin(geneDiff)]
@@ -265,7 +304,7 @@ def combine_csv(fnames):
     #         geneSet.intersection_update(df['Gene ID'])
         dfs.append(df)
 
-    geneRef.loc[:,['Coverage','FPKM','TPM']] = 0
+    geneRef.loc[:,['FPKM','TPM']] = 0
     geneRef.sort_values('Gene ID',inplace=1)
     geneRef = geneRef.reset_index()
     geneSet = geneAny
@@ -276,14 +315,14 @@ def combine_csv(fnames):
     print 'Surviving rate: ',float(len(geneSet))/len(geneAll)
     
     return dfs,(geneRef,geneValid)
-def padWithRef(df,ref):
-    df = df.append(ref[~ref['Gene ID'].isin(df['Gene ID'])])
-    df.sort_values('Gene ID',inplace=1)
+def padWithRef(df,ref,idCol = 'Gene ID'):
+    df = df.append( ref[~ref[idCol].isin(df[idCol])])
+    df.sort_values( idCol,inplace=1)
     df = df.reset_index()
     return df
-def routine_combineCSV(fnames):
+def routine_combineCSV(fnames,CUTOFF=1,idCol='Gene ID'):
     print '[PROG] Starting to readfile'
-    dfs,(geneRef,geneValid) = combine_csv(fnames)
+    dfs,(geneRef,geneValid) = combine_csv(fnames,CUTOFF=CUTOFF,idCol = idCol)
     print '[PROG] Finished to readfile'
     
     print '[PROG] Starting to pad'
@@ -414,7 +453,7 @@ def fit_PCA(C,n_components=5,**kwargs):
             'train_data':C,
             'trans_data':M,}
 
-def quickPCA(trans_data=None,model=None,COL_SER=None,index=None,**kwargs):
+def quickPCA(trans_data=None,model=None, COL_SER=None,index=None,**kwargs):
     M = trans_data
     mdl = model
     nSample =   len(M)
@@ -426,9 +465,9 @@ def quickPCA(trans_data=None,model=None,COL_SER=None,index=None,**kwargs):
 
     if not isinstance(COL_SER,pd.Series):
         COL_SER = pd.Series(COL_SER)
-
     
     COL_RGB,(COL_LAB,COL_LST) = ser2col(COL_SER)
+    
     common = {
              }
     fig,axs= plt.subplots(1,2,figsize=[14,4])
@@ -464,11 +503,12 @@ def discrete_cmap(N, base_cmap=None):
     color_list = base(np.linspace(0, 1, N+1))
     cmap_name = base.name + str(N)
     return base.from_list(cmap_name, color_list, N+1)
+
 def ser2col(COL_SER):
     COL_VAL, COL_LAB= COL_SER.factorize()
     NCAT = len(COL_LAB)
 #     cmap = plt.get_cmap('jet')
-    cmap = discrete_cmap(NCAT,'jet')
+    cmap = discrete_cmap(NCAT,'jet')    
 #     print (COL_VAL.ravel())
     COL_RGB = cmap(COL_VAL.ravel())
     COL_LST = cmap(range(NCAT))
@@ -512,7 +552,7 @@ def timePCA(ZTime_int,trans_data=None, model = None,COL_SER=None,index=None,**kw
     return fig    
 
 
-# In[28]:
+# In[32]:
 
 
 #### Cluster Profiling Utilities
@@ -546,7 +586,7 @@ def mapTup(lst,n):
     return res
 def isNovo(lst):
     res = map(lambda x:x=='STRG',mapTup(lst,4))
-    return res
+    return np.array(res)
 def countNovo(df,):
     res = pyutil.collections.Counter([])
     return res
@@ -587,7 +627,27 @@ def qc_GeneExpr(exprMat,idx=None,
     return ax
 
 
-# In[147]:
+# In[67]:
+
+
+# import pymisca.util as pyutil
+# pyutil.meta2flat??
+# pyutil.packFlat
+
+
+# In[68]:
+
+
+def qc_matrix(C):
+    d = pyutil.collections.OrderedDict()
+    d['Mean'],d['Std'],d['Shape'] = C.mean(),C.std(),C.shape
+    s = '[qc_matrix]%s'% pyutil.packFlat([d.items()],seps=['\t','='])[0]
+    return s
+    
+#     (M,V,CV) = 
+
+
+# In[72]:
 
 
 def stdNorm(X):
@@ -610,10 +670,11 @@ def fit_BGM_AllNorm(C,normLst=None,algoLst=None,ALI='Test',**kwargs):
         algoLst = ['DPGMM','DDGMM','GMM',]
     mdls = {}
     for normF in normLst:
-        mdls[normF.__name__] = fit_BGM(C,normF=normF,
-                                       ALI=ALI,
-                                       algoLst = algoLst,
-                                       **kwargs)
+        for algo in algoLst:
+            mdls[normF.__name__] = fit_BGM(C,normF=normF,
+                                           ALI=ALI,
+                                           algo = algo,
+                                           **kwargs)
 #     np.save(ALI,mdls,)        
     return mdls
 
@@ -624,18 +685,25 @@ def fit_BGM(C,
             stdPer = 0,
             rowName=None,
             colName=None,
-            nClu = 30,
-            maxIt = 250,
-           algoLst = None):
-    if algoLst is None:
-        algoLst = ['DPGMM','DDGMM','GMM',]    
+            nClu = 25,
+            maxIt = 1000,
+            algo = 'DPGMM',
+#            algoLst = ['DPGMM'],
+           alpha = .1,
+            covariance_type = 'diag',
+#             covariance_type = None,
+#             **kwargs
+           ):
+#     if algoLst is None:
+#         algoLst = ['DPGMM','DDGMM','GMM',]    
     try:
         DIR,ALI = ALI.rsplit('/',1)
     except:
         DIR='.'
     os.system('mkdir -p %s'%(DIR))
     if isinstance(C,pd.DataFrame):
-        rowName,colName,C = C.index.values, C.columns, C.values        
+        rowName,colName,C = C.index.values, C.columns, C.values
+        ALI = getattr(C,'name','Test')
         pass
     if stdPer > 0 :
         assert stdPer < 100,'Percentile must < 100, Got %d instead'%stdPer
@@ -646,8 +714,9 @@ def fit_BGM(C,
     import sklearn.mixture as skmix
     common = {'n_components': nClu,
           'verbose':2,
-         'max_iter':maxIt,}
-    alpha = .1
+         'max_iter':maxIt,
+             'covariance_type':covariance_type,
+             }
     mdlLst = {'DPGMM':skmix.BayesianGaussianMixture(weight_concentration_prior_type='dirichlet_process',
                                         weight_concentration_prior=alpha,
                                        **common),
@@ -658,43 +727,46 @@ def fit_BGM(C,
          }
     mdls = {}
     X = normF(C)
+    print qc_matrix(X)
 #     raise Exception('test')
-    for mdlName,mdl in mdlLst.items():
-        if mdlName not in algoLst:
-            continue
-        NAME = '%s_stdPer=%d_norm=%s_genre=%s_nClu=%d_maxIt=%d'%(
-            ALI,
-            stdPer,
-            normF.__name__,
-            mdlName,
-            mdl.n_components,
-            maxIt
-        )
-        print '[MSG] Now Fitting Model:%s'%NAME
-        d = {'name': NAME,
-             'train_data':X,
-             'colName':colName,
-             'rowName':rowName,
-             'param':{
-                 'stdPer':stdPer,
-                 'normF':normF.__name__,
-                 'nClu':mdl.n_components,
-                 'genre':mdlName,
-             },
-           }
-        try:
-            logFile = open('%s/%s.log'%(DIR,NAME),'w')
-            with pyutil.RedirectStdStreams(logFile):
-                mdl.fit(X)
-                d.update({'suc':1,'model':mdl})
+#     for mdlName,mdl in mdlLst.items():
+#     if mdlName not in algoLst:
+#         continue
+    mdl = mdlLst[algo]
+    NAME = '%s_stdPer=%d_norm=%s_genre=%s_nClu=%d_maxIt=%d'%(
+        ALI,
+        stdPer,
+        normF.__name__,
+        algo,
+        mdl.n_components,
+        maxIt
+    )
+    print '[MSG] Now Fitting Model:%s'%NAME
+    d = {'name': NAME,
+         'train_data':X,
+         'colName':colName,
+         'rowName':rowName,
+         'param':{
+             'stdPer':stdPer,
+             'normF':normF.__name__,
+             'nClu':mdl.n_components,
+             'genre':algo,
+             'covariance_type':mdl.covariance_type
+         },
+       }
+    try:
+        logFile = open('%s/%s.log'%(DIR,NAME),'w',0)
+        with pyutil.RedirectStdStreams(logFile):
+            mdl.fit(X)
+            d.update({'suc':1,'model':mdl})
 #             logFile.close()
-            print "[SUCC] to fit Model:%s"%(NAME,)
-        except Exception as e:
-            print "[FAIL] to fit Model:%s due to :'%s'"%(NAME,e)
-            d.update({'suc':0})
-        mdls[NAME] = d    
-        np.save('%s/%s'%(DIR,NAME),d)
-    return mdls
+        print "[SUCC] to fit Model:%s"%(NAME,)
+        print msgGMM(mdl)
+    except Exception as e:
+        print "[FAIL] to fit Model:%s due to :'%s'"%(NAME,e)
+        d.update({'suc':0})
+    np.save('%s/%s'%(DIR,NAME),d)
+    return d
 def make_qc_Model(vX,tX=None,normF = None):
 
     ##### Datasets: Training
@@ -740,10 +812,14 @@ def make_qc_Model(vX,tX=None,normF = None):
     return qc_Model
 
 
-# In[164]:
+# In[12]:
 
 
-def qc_Sort(fname=None,df=None,cname = 'test',vmin=-2,vmax=2,title = None,**heatargs):
+def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
+            xlim = None,
+            ylim = None,
+            **heatargs):
+    vmin, vmax = vlim
     if df is None:
         df = pyutil.readData(fname)
         if title is None:
@@ -754,9 +830,10 @@ def qc_Sort(fname=None,df=None,cname = 'test',vmin=-2,vmax=2,title = None,**heat
          'cname':cname,
         }    )
     C = df.values
-    (M,V,CV),_= qcAvg(C,silent=0)
+    (M,V,CV),axsLst = qcAvg(C,silent=0,xlim=xlim,ylim = ylim)
     plt.suptitle(title)
     inter = -len(C)//1000
+    
     fig,axs= plt.subplots(3,1,figsize=[14,6],gridspec_kw={'hspace':0.3})
     axs=axs.flat
     pyvis.heatmap(C[V.argsort()][::inter],transpose=1,
@@ -767,50 +844,16 @@ def qc_Sort(fname=None,df=None,cname = 'test',vmin=-2,vmax=2,title = None,**heat
 
     pyvis.heatmap(C[M.argsort()][::inter],transpose=1,
                  main='sorted by Average',ax=axs[2],**heatargs)
-    return fig,axs
+    
+    axsLst = np.hstack([axsLst,axs])
+    return (M,V,CV),axsLst
 
 
-# In[157]:
+# In[52]:
 
 
-class countMatrix(pyutil.util_obj):
-    def __init__(self,**kwargs):
-        super(countMatrix, self).__init__(**kwargs)
-    @classmethod
-    def from_npy(cls,fname):
-        dd = np.load(fname).tolist()
-        return cls(**dd)
-    def colName_short(self,condName=None):
-        condName = self.colName if condName is None else condName        
-        try:
-            condName = pyutil.meta2flat([ 
-                [x[1] for x in y] 
-                    for y in pyutil.flat2meta(condName)],
-                seps=['_'])
-        except Exception as e:
-            print '\n \[WARN\] unable to simplify condName. Exception:%s'%e
-        finally:
-            return condName
-    def heatmap(self,C=None,vlim=[-2,2],**kwargs):
-        C = self.train_data if C is None else C
-        condName = self.colName_short()
-#         im = pyvis.heatmap(C[cidx][sidx],
-        im = pyvis.heatmap(C,
-#                            ylab=(None if not i else 'Gene'),
-#                            ytick = (None if not i else gCur['Gene Name']),
-                           xlab='Condition',
-                           xtick=condName,
-                           transpose=1,
-                          vmin=vlim[0],vmax=vlim[1],
-#                           ax=ax
-                          ) 
-        return im
-def loadMatrix(fname):
-    ali, ext = fname.rsplit('.',1)
-    if ext == 'npy':
-        dd = np.load(fname).tolist()
-    return dd
-import countMatrix as ctMat
+
+import CountMatrix as ctMat
 # from countMatrix import countMatrix
 countMatrix = ctMat.countMatrix
 sortLabel = ctMat.sortLabel
@@ -878,6 +921,7 @@ def qc_ModelDict(dd=None,fname=None,ali=None,geneKey=None,DIR=None,
     else:
         Y = mdl.predict(tX); s = mdl.score_samples(tX); sbin = s> np.percentile(s,sper); 
         Y,pos = sortLabel(Y,tX)
+#     dd.setDF(tX)
     
     
     # pcommon= {}
@@ -935,7 +979,8 @@ def qc_ModelDict(dd=None,fname=None,ali=None,geneKey=None,DIR=None,
 #                     gCur = gMark
 #                     gCur = gMark.rename(columns={'Query ID':'Gene Name'})                
                 gCur[['Gene Name']].to_csv('src/%s'%cluName,index=0,)
-                gCur[['Gene Name']].to_excel(ExcelFile,cluName,index=True,)                
+#                 gCur[['Gene Name']].to_excel(ExcelFile,cluName,index=True,)                
+                dd.df.loc[gCur['Gene Name']].to_excel(ExcelFile,cluName,index=True,)                
                 
                 figList = []
                 matDict ={'raw':tX,'stdNorm':tXsd}
@@ -970,6 +1015,11 @@ def qc_ModelDict(dd=None,fname=None,ali=None,geneKey=None,DIR=None,
         ExcelFile.save()
         ExcelFile.close()
         os.system('pdext {fname} html'.format(fname=OFILE.name) )
+        s = '[{0}]({0}/)'.format(dd.name)
+        if pyutil.hasIPD:
+            pyutil.ipd.display(pyutil.ipd.Markdown(s))
+        else:
+            print s
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -984,9 +1034,38 @@ def log2p1(x):
     return res
 
 
-# In[142]:
+# In[25]:
 
 
+def panelPlot(self, cols = None, axs = None):
+    ''' Take a pandas.DataFrame and plots data into panels
+    Especially useful when combined with sort_values()
+'''
+    if axs is None:
+        fig,axs = plt.subplots(6,1,figsize=[14,11],sharex='all')
+    axs = axs.flat
+
+    dfc = self
+    xs = range(len(dfc))
+
+    args = [4,]
+
+    for i,col in enumerate(cols):
+        plt.sca(axs[i])
+        plt.scatter(xs,dfc[col].values,*args)
+        plt.ylabel(col)
+
+    for ax in axs[1:]:
+        plt.sca(ax)
+    #     plt.colorbar(res)
+        plt.grid()
+    return axs
+
+
+# In[54]:
+
+
+import ptn
 #### DataSets Management
 def dfContrast(dfRef,dfObs):
     ''' Contrast two DataFrames
@@ -996,13 +1075,191 @@ def dfContrast(dfRef,dfObs):
     df.columns = pyutil.metaContrast(dfRef.columns,dfObs.columns)
     return df
 
+def tidyBd(C1,match = 'Brad', ):
+    C1 = ctMat.countMatrix.from_DataFrame(C1)
+    C1 = C1.fillna(0)
+    if match is not None:
+        C1 = C1.filterMatch(match)
+    C1.sanitiseIndex(ptn.BdAcc)
+    return C1
 
-# In[166]:
+
+# In[67]:
+
+
+#### Data I/O
+
+
+import numpy as np
+import pandas as pd
+import pyBigWig
+import pymisca.util as pyutil
+
+    
+def extractBigWig_worker(lines, bwFile = None,stepSize = 1, bw = None):
+    ''' Helper mapper for querying BigWig
+'''
+    bw = pyBigWig.open(bwFile)
+    lines = [x for x in lines if x]
+    def parse(line):
+        if line is None:
+            return None
+        cols = line.strip().split('\t')
+        chrom, start,end, id = cols[0],int(cols[1]),int(cols[2]),cols[3]
+        if chrom not in bw.chroms():
+            o = None
+        else:
+            vals = bw.values(chrom, start, end, numpy=0)[::stepSize]
+            o = vals
+        return (id,o)
+    res = map( parse, lines) 
+    bw.close()
+    return res
+
+def extractBigWig(bwFile,bedFile,stepSize=1,NCORE=1,
+                  mapChunk = None, span = None):
+    ''' Extracting a signal matrix for each bed region
+'''
+    assert NCORE == 1,'Multi-thread is slower here..., so dont! '
+#     assert stepSize == 1,'Not implemented'        
+    with pyBigWig.open(bwFile) as bw:
+        it = open(bedFile)
+        worker = pyutil.functools.partial(extractBigWig_worker,
+                                          bwFile =bwFile,
+                                         stepSize=stepSize,)
+#         res = map(worker,it)
+        if NCORE == 1:
+            res = map(worker,[it])
+        else:
+            it = pyutil.window(it,n=mapChunk,step=mapChunk,keep=1,)                
+            res = pyutil.mp_map(worker, it, n_cpu=NCORE,)
+        res = sum(res,[])
+#             pass 
+        ids, out  = zip(*res)
+
+    #### Replacing "None" and incomplete intervals
+    ref = next((item for item in out if item is not None),None)
+    assert ref is not None,'Cannot find an reference shape, likely wrong chromosomes'
+#     L = len(ref)
+#     L = len(res) if span is None else span //stepSize        
+    L = max(map(len,out))
+    lst = []
+    print '[L]=',L
+    for x in out:
+        if x is None:
+            y = [0.]*L
+        else:
+            Lx = len(x)
+            y = x + [0.] * (L - Lx)            
+        lst += [y]
+#         out = [[0.]*L if x is None else x for x in out]
+    out = np.array(lst)
+    out = np.nan_to_num(out)
+    
+#     MLEN = np.mean([len(x) for x in out]) 
+    MLEN='not set'
+    assert out.dtype!='O','''Unable to shape the matrix properly: 
+    %s, %s '''% (MLEN, [(type(x),x) for x in out if len(x)< MLEN] )
+    out = pd.DataFrame(out).set_index([list(ids)])
+    out.columns = stepSize * np.arange(0, out.shape[-1], )
+            # Do something with the values...
+    out = ctMat.countMatrix.from_DataFrame(df=out)
+    return out
+
+def findPromoter(
+    INFILE = None,
+    upStream=1000,
+    downStream=500 ,
+    opt = '-s -i -',
+    filterKey = 'CDS',
+    OFILE = None,
+    inplace = 0,
+    GSIZE = None,
+):
+    '''Find the promoter from a GTF file
+'''
+    if GSIZE is None:        
+        TRY = os.environ.get('GSIZE',None)
+        assert TRY is not None, 'Please specify chromosizes'
+        GSIZE = TRY
+    assert os.path.exists(GSIZE),'File does not exist:"%s"'%GSIZE
+    
+    if OFILE is None:        
+        OFILE = os.path.basename(INFILE)+'.promoter'
+    if inplace:
+        OFILE = os.path.join(os.path.dirname(INFILE),OFILE)
+
+    cmd = 'cat %s'%INFILE
+    if filterKey is not None:
+        cmd += '| grep {} \\\n'.format(filterKey)
+    cmd += r'''
+    | bedtools slop -l 0 -r -1.0 -pct {opt} \
+    | bedtools slop -l {upStream} -r {downStream} {opt} \
+    | sed "s/\"//g"  \
+    >{OFILE}
+    '''.format(
+#         INFILE = INFILE,
+        OFILE = OFILE,
+#         filterKey=filterKey,
+        upStream = upStream,
+        downStream = downStream,
+        opt='%s -g %s'%(opt,GSIZE) ,    
+    ).strip()
+    res = pyutil.shellexec(cmd)
+    print res
+    return OFILE
+# %time findPromoter(INFILE='./Bdistachyon_314_v3.1.gene_exons.gtf.cds',inplace=1)
+# sutil.extractBigWig = extractBigWig
+
+
+
+def parseBedmap(df = None, fname = None):
+    ''' Parse the output of bedMap
+'''
+    if df is None:
+        df = pd.read_table(fname,header = None)
+
+    df = df.dropna()
+    
+    df.columns = bedHeader + ['hit']
+
+    res = pyutil.explode(df,'hit','acc',';')
+    res = res.merge(df)
+    return res
+
+
+# In[40]:
+
+
+### dataFrame headers 
+bedHeader = '''
+0:chrom
+1:start
+2:end
+3:acc
+4:score
+5:strand
+6:FC
+7:neglogPval
+8:neglogQval
+9:summit
+'''.strip().splitlines()
+bedHeader = [x.split(':')[1] for x in bedHeader] 
+
+
+# In[68]:
 
 
 if __name__=='__main__':
-    get_ipython().system(u'jupyter nbconvert --to python tmp.ipynb')
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
 # !python compile_meta.ipynb && echo '[succ]'
+
+
+# In[9]:
+
+
+if __name__=='__main__':
+    get_ipython().system(u" sed -n '970,980p' < util.py")
 
 
 # In[154]:
