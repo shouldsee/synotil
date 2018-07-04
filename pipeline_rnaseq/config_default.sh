@@ -12,11 +12,20 @@ export REF=/home/feng/ref/Brachypodium_Bd21_v3-1
 export GTF=$(echo $REF/annotation/*.gtf)
 export GFF=$(echo $REF/annotation/*.gene_exons.gff3)
 export GSIZE="$REF/genome.sizes"
+export FA_GENOME="$REF/genome.fa"
+
 A=$(ls -1 $REF/sequence/Bowtie2Index/* | head -1)
 export IDX_BOWTIE2=${A%%.*}
 
-# checkVars GTF GFF GSIZE FA_ADAPTER REF IDX_BOWTIE2
-checkVars GTF GSIZE FA_ADAPTER_SE FA_ADAPTER_PE REF IDX_BOWTIE2 # GFF IDX_HISAT
+###### HISAT2 index
+A=$(ls -1 $REF/sequence/HISAT2Index/* | head -1)
+export IDX_HISAT2=${A%%.*}
 
+export DB_MOTIF=/home/feng/ref/motif/CIS-BP/Brachypodium_distachyon.meme
+
+# checkVars GTF GFF GSIZE FA_ADAPTER REF IDX_BOWTIE2
+checkVars GTF GSIZE FA_ADAPTER_SE FA_ADAPTER_PE REF IDX_BOWTIE2 IDX_HISAT2 \
+    FA_GENOME DB_MOTIF
+    
 #### Hand-coded environment variables
 ######################################

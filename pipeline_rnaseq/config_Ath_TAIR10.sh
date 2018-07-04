@@ -15,7 +15,11 @@ export GSIZE="$REF/genome.sizes"
 A=$(ls -1 $REF/sequence/Bowtie2Index/* | head -1)
 export IDX_BOWTIE2=${A%%.*}
 
-checkVars GTF GSIZE FA_ADAPTER REF IDX_BOWTIE2 # GFF
+###### HISAT2 index
+A=$(ls -1 $REF/sequence/HISAT2Index/* | head -1)
+export IDX_HISAT2=${A%%.*}
+
+checkVars GTF GSIZE FA_ADAPTER_SE FA_ADAPTER_PE REF IDX_BOWTIE2 IDX_HISAT2 # GFF 
 
 #### Hand-coded environment variables
 ######################################
