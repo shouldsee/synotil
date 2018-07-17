@@ -8,7 +8,7 @@
 #### Written for BrachyPhoton at SLCU
 
 
-# In[38]:
+# In[87]:
 
 
 if __name__=='__main__':
@@ -25,7 +25,7 @@ def to_tsv(df,fname,header= None,index=None, **kwargs):
     return fname
 
 
-# In[ ]:
+# In[69]:
 
 
 INDEX = '/media/pw_synology3/BrachyPhoton/raw/index'
@@ -647,7 +647,7 @@ def qc_matrix(C):
 #     (M,V,CV) = 
 
 
-# In[72]:
+# In[86]:
 
 
 def stdNorm(X):
@@ -766,6 +766,7 @@ def fit_BGM(C,
         print "[FAIL] to fit Model:%s due to :'%s'"%(NAME,e)
         d.update({'suc':0})
     np.save('%s/%s'%(DIR,NAME),d)
+    d = ctMat.countMatrix.from_dict(d)
     return d
 def make_qc_Model(vX,tX=None,normF = None):
 
@@ -812,12 +813,13 @@ def make_qc_Model(vX,tX=None,normF = None):
     return qc_Model
 
 
-# In[12]:
+# In[79]:
 
 
 def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
             xlim = None,
             ylim = None,
+            figsize2=[14,6],
             **heatargs):
     vmin, vmax = vlim
     if df is None:
@@ -834,7 +836,7 @@ def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
     plt.suptitle(title)
     inter = -len(C)//1000
     
-    fig,axs= plt.subplots(3,1,figsize=[14,6],gridspec_kw={'hspace':0.3})
+    fig,axs= plt.subplots(3,1,figsize=figsize2,gridspec_kw={'hspace':0.3})
     axs=axs.flat
     pyvis.heatmap(C[V.argsort()][::inter],transpose=1,
                  main='sorted by Varaince',ax=axs[0],**heatargs)
@@ -1084,7 +1086,7 @@ def tidyBd(C1,match = 'Brad', ):
     return C1
 
 
-# In[67]:
+# In[84]:
 
 
 #### Data I/O
@@ -1101,15 +1103,31 @@ def extractBigWig_worker(lines, bwFile = None,stepSize = 1, bw = None):
 '''
     bw = pyBigWig.open(bwFile)
     lines = [x for x in lines if x]
-    def parse(line):
+    nField = lines[0].strip().split('\t').__len__()    
+    def parse(line, nField = nField):
         if line is None:
             return None
         cols = line.strip().split('\t')
-        chrom, start,end, id = cols[0],int(cols[1]),int(cols[2]),cols[3]
+        if nField >= 6:
+            chrom, start,end, (id, score, strand) = cols[0],int(cols[1]),int(cols[2]),cols[3:6]
+        else:
+            strand = '+'            
+        if nField is 5:
+            assert 0, 'ehhhh'
+        if nField is 4:
+            chrom, start,end, id = cols[0],int(cols[1]),int(cols[2]),cols[3]
+        else:
+            chrom, start,end = cols[0],int(cols[1]),int(cols[2])
+            id = 'NoID'
         if chrom not in bw.chroms():
             o = None
         else:
-            vals = bw.values(chrom, start, end, numpy=0)[::stepSize]
+            sec = bw.values(chrom, start, end, numpy=0)
+            if strand is not '-':
+                vals = sec[::stepSize]
+            else:
+                vals = sec[::-stepSize]
+                
             o = vals
         return (id,o)
     res = map( parse, lines) 
@@ -1224,8 +1242,21 @@ def parseBedmap(df = None, fname = None):
     df.columns = bedHeader + ['hit']
 
     res = pyutil.explode(df,'hit','acc',';')
-    res = res.merge(df)
+    res = res.merge(df.drop('hit',1),on='acc')
     return res
+
+def parseBedClosest(df = None, fname = None):
+    ''' Parse the output of 'bedtools closest'
+'''
+    if df is None:
+        df = pd.read_table(fname,header = None,index_col = None)
+#     df = df.dropna()    
+
+    header = bedHeader + pyutil.paste0([['feature_'], bedHeader]).tolist()
+    df = df.iloc[:,:18]
+    df.columns = header[:17] + ['distance']
+    df['hit'] = df['feature_acc']
+    return df
 
 
 # In[40]:
@@ -1247,7 +1278,10 @@ bedHeader = '''
 bedHeader = [x.split(':')[1] for x in bedHeader] 
 
 
-# In[68]:
+####
+
+
+# In[85]:
 
 
 if __name__=='__main__':
