@@ -24,7 +24,6 @@ main(){
         echo []Logfile $LOGFILE
         rm -f $LOGFILE; touch $LOGFILE
     }
-    {
     
     {
     echo "===== IMPORTANT VARS ====="
