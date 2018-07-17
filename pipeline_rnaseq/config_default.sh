@@ -21,7 +21,10 @@ export IDX_BOWTIE2=${A%%.*}
 A=$(ls -1 $REF/sequence/HISAT2Index/* | head -1)
 export IDX_HISAT2=${A%%.*}
 
-export DB_MOTIF=/home/feng/ref/motif/CIS-BP/Brachypodium_distachyon.meme
+export DB_MOTIF=" \
+/home/feng/ref/motif/CIS-BP/Brachypodium_distachyon.meme \
+/home/feng/ref/motif/ARABD/ArabidopsisDAPv1.meme \
+/home/feng/ref/motif/ARABD/ArabidopsisPBM_20140210.meme"
 
 # checkVars GTF GFF GSIZE FA_ADAPTER REF IDX_BOWTIE2
 checkVars GTF GSIZE FA_ADAPTER_SE FA_ADAPTER_PE REF IDX_BOWTIE2 IDX_HISAT2 \
