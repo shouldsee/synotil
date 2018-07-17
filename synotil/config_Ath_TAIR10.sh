@@ -10,12 +10,18 @@ export FA_ADAPTER_PE="$ADADIR/TruSeq3-PE-2.fa"
 export REF=/home/feng/ref/Arabidopsis_thaliana_TAIR10
 ###### Genome annotation .gtf and .gff3 (optional)
 export GTF=$(echo $REF/annotation/*.gtf)
-# export GFF=$(echo $REF/annotation/*.gene_exons.gff3)
+export GFF=$(echo $REF/annotation/*.gff*)
 export GSIZE="$REF/genome.sizes"
+export FA_GENOME="$REF/genome.fa"
+
 A=$(ls -1 $REF/sequence/Bowtie2Index/* | head -1)
 export IDX_BOWTIE2=${A%%.*}
 
-checkVars GTF GSIZE FA_ADAPTER REF IDX_BOWTIE2 # GFF
+###### HISAT2 index
+A=$(ls -1 $REF/sequence/HISAT2Index/* | head -1)
+export IDX_HISAT2=${A%%.*}
+
+checkVars GTF GSIZE FA_ADAPTER_SE FA_ADAPTER_PE REF IDX_BOWTIE2 IDX_HISAT2 FA_GENOME GFF 
 
 #### Hand-coded environment variables
 ######################################

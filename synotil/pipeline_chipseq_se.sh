@@ -8,11 +8,13 @@ main(){
     ### Kind of weird here...
     source $(dirname $SELF)/activate
 
+    
+    ######################################
     echo ==== Parse Input arguments
     {
         read1=$1 ####  e.g. test_R1_.fastq
-        read2=$2 ####  e.g. test_R2_.fastq
-        NCORE=${3:-6} #### number of threads, default to 6
+    #     read2=$2 ####  e.g. test_R2_.fastq
+        NCORE=${2:-6} #### number of threads, default to 6
         DIR=$PWD
         ALI1=$(bname $read1)
     #     ALI2=$(bname $read2)
@@ -22,37 +24,32 @@ main(){
         echo []Logfile $LOGFILE
         rm -f $LOGFILE; touch $LOGFILE
     }
+    
     {
     echo "===== IMPORTANT VARS ====="
-    checkVars read1 read2 SELF LOGFILE 
+    checkVars read1 SELF LOGFILE 
     echo "===== Genome Vars ====="
-    checkVars GSIZE FA_ADAPTER_PE REF IDX_BOWTIE2 
+    checkVars GSIZE FA_ADAPTER_SE REF IDX_BOWTIE2 
     #checkVars GTF  GFF 
     } | tee -a $LOGFILE
-    
-
 
     ######################################
     echo ==== main program
     {
         T00=`datefloat`
-        
+
         echo 'command,time(s)'>$ALI.time
         #######################
 
         ########### Starting pipeline
         mkdir -p fastqc; cd fastqc; headqc ../$read1 100k; cd ..
-#         READs=($read1  $read2)
-        READs=`echo $read1 $read2`
-        echo [READs] $READs
-        
-#         assert "${#Reads[@]} -eq 2" $LINENO "Reads not paired :${#Reads[@]}"         
-        pipeline_trim_pe.sh $READs $NCORE 
-        assert "$? -eq 0" $LINENO "Trimmomatic/fastqc failed"
-        
-        pipeline_bowtie2_pe.sh $READs $IDX_BOWTIE2 $NCORE
-        assert "$? -eq 0" $LINENO "BOWTIE2 failed"
 
+        pipeline_trim_se.sh $read1 $NCORE 
+        assert "$? -eq 0" $LINENO "Trimmomatic/fastqc failed"
+
+    #     pipeline_hisat.sh  $ALI1.fastq  $ALI2.fastq $IDX_HISAT $NCORE
+        pipeline_bowtie2_se.sh  $ALI1.fastq $IDX_BOWTIE2 $NCORE
+        assert "$? -eq 0" $LINENO "BOWTIE2 failed"
 
         pipeline_samtools.sh ${ALI}.sam $NCORE
         assert "$? -eq 0" $LINENO "SAM2BAM/SORT failed"
