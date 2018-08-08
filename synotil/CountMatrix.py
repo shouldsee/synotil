@@ -74,6 +74,10 @@ def wrapDFMethod(DFMethod):
     return newMethod
 
 # class countMatrix(pyutil.pd.DataFrame):
+
+
+
+
 class countMatrix(pd.DataFrame):
     ''' A decorated pandas.DataFrame class that
 knows how to plot itself
@@ -92,8 +96,7 @@ knows how to plot itself
                  model = None,
                  **kwargs):
         df = pyutil.init_DF( C=C,rowName=rowName,colName = colName)  
-#         print type(df)
-#         print type(countMatrix)
+#         print self.__class__,countMatrix, isinstance(self,countMatrix,)
         super(countMatrix, self).__init__(df)
         self.name_ = name
         self.look = look
@@ -101,12 +104,26 @@ knows how to plot itself
         self.vlim = vlim
         self.fname = fname
         self.model = model
+        self.param = {'normF':'identityNorm',
+                     }        
         self.set_config( test=None,**kwargs)
         self.test= None
         
     @property
     def name(self):
-        return str(self.name_)
+        return str(self.name_).split('/')[-1]
+    def formatName(self,name=None,**kwargs):
+        name = self.name if name is None else name
+        res = pyutil.formatName(name,**kwargs)
+        return res
+    
+    def __getstate__(self):
+        d = dict(self.__dict__)
+#         del d['logger']
+        return d
+    def __setstate__(self, d):
+        self.__dict__.update(d) # I *think* this is a safe way to do it
+        
     def set_name(self,name):
         self.name_ = name
         return name
@@ -139,18 +156,27 @@ knows how to plot itself
                 res = pyutil.init_DF(df, rowName = self.index)
         else:
             res = df
-        if (isinstance(res,pd.DataFrame)):
-            res = countMatrix.from_DataFrame(df = res,)            
+        if not isinstance(res, self.__class__ ):
+            assert isinstance( res, pd.DataFrame)
+#             print self.__class__, res.__class__
+            res = self.__class__.from_DataFrame(df = res,)            
+            
         res.set_config(**config)
         return res
 
-    
+
     @classmethod
-    def from_DataFrame(cls,df=None,fname=None,name=None,**kwargs):
+    def from_DataFrame(cls,df=None,fname=None,name=None,index_col = None, **kwargs):
         if df is None:
             assert fname is not None,'[ERR] must specify one of "df" or "fname" '
             df = pyutil.readData(fname,**kwargs)
             name = pyutil.os.path.basename(fname).rsplit('.',1)[0]
+        elif isinstance(df,pd.Series):
+            df = df.to_frame()
+        if index_col is not None:
+            assert index_col in df
+            df.set_index(index_col,drop=0,inplace=1)
+#         print 3,type(df)
         ins = cls(C=df.values,
                  colName=df.columns,
                  rowName=df.index,
@@ -158,15 +184,17 @@ knows how to plot itself
                   fname=fname,
                  )
         return ins
+    
     @classmethod
-    def from_npy(cls,fname):
+    def from_npy(cls,fname,**kwargs):
         dd = np.load(fname).tolist()
-        ins = cls.from_dict(dd)
+        ins = cls.from_dict(dd,**kwargs)
         ins.fname = fname
         return ins
     @classmethod
-    def from_dict(cls,dd):
+    def from_dict(cls,dd,**kwargs):
         C,colName,rowName = [ dd.pop(key) for key in ['train_data','colName','rowName']]
+        dd.update(kwargs)
         df = cls(C=C,colName=colName,rowName=rowName,**dd)
         return df
     @classmethod
@@ -221,13 +249,30 @@ knows how to plot itself
         return im
     
     
-    ### ====> Wrappers for pandas.DataFrame native methods
+
     def copy(self,deep = True):
 # #         df = super(countMatrix, self).copy(deep=deep)
         df = pd.DataFrame.copy(self,deep=deep)
         dd = self.setDF(df=df)        
         return dd
     
+    def qc_Avg(self):
+        '''Add summary dataFrame as an attribute
+    '''
+        import util as sutil
+        (M,SD,CV), _ = sutil.qc_Avg( self,silent=1)
+        # df = pd.concat([M,SD,CV],axis=1)
+        df = pd.DataFrame({'M':M,
+                           'SD':SD, 
+                           'CV':CV})
+#         df = pd.DataFrame({'M':M.values,
+#                            'SD':SD.values, 
+#                            'CV':CV.values})
+        df = df.set_index( self.index)
+        df['per'] = pyutil.dist2ppf(df.SD)
+
+        self.summary = df
+        return self        
 
 #     def fillna(self,fill,inplace=1,**kwargs):
 #         pd.DataFrame.fillna(self,fill,inplace=inplace,**kwargs)
@@ -235,6 +280,7 @@ knows how to plot itself
 #     def apply(self,*args,**kwargs):
 #         df = pd.DataFrame.apply(self,*args,**kwargs)
     #### ====<
+    ### ====> Wrappers for pandas.DataFrame native methods
     @wrapDFMethod
     def sortedLabel(self,clu = None,CUTOFF=None):
         C = self.values
@@ -246,6 +292,25 @@ knows how to plot itself
                 
         clu, pos = sortLabel(clu,C)
         return pd.DataFrame(clu).set_index(self.index)
+
+    @wrapDFMethod
+    def predict(self, C= None,CUTOFF=None):
+        C = self.values if C is None else C
+        if CUTOFF is not None:
+            clu = predictWithCut(self.model,C, CUTOFF=CUTOFF)
+        else:
+            clu = self.model.predict(C)
+        return pd.DataFrame(clu).set_index(self.index)
+    def predict_proba(self,C=None,asDF=1):        
+        C = self.values if C is None else C
+        if hasattr(self.model,'predict_proba'):        
+            clu = self.model.predict_proba(C)
+        elif hasattr(self.model,'predict'):
+            clu = self.model.predict(C)
+            clu = pyutil.oneHot(clu)
+        if asDF:
+            clu = pd.DataFrame(clu).set_index(self.index)    
+        return clu
     def reorder(self):
         clu = self.sortedLabel()
         clu = clu.sort_values(0,)
@@ -268,6 +333,7 @@ knows how to plot itself
         isStr = isinstance(vals,str)
         if isStr:
             vals = [vals]
+        vals = map(str,vals)
         vals = pyutil.flatSubset( vals, 
                                          keep = keep, 
                                          negate =negate)
@@ -294,7 +360,7 @@ countMatrix.sort_values = wrapDFMethod(pd.DataFrame.sort_values)
 countMatrix.reindex = wrapDFMethod(pd.DataFrame.reindex)
 countMatrix.astype = wrapDFMethod(pd.DataFrame.astype)
 
-lst = ['clip','mean','max','min','std','dropna']
+lst = ['clip','mean','max','min','std','dropna','get','rename']
 for name in lst:
     setattr(countMatrix,name,
             wrapDFMethod( getattr( pd.DataFrame, name)) )
@@ -321,7 +387,8 @@ def vstack(lst,how='outer', as_index=0, as_df =0, **kwargs):
 #     if how = 'left':
     if as_index:
 #         lst = [x.setDF( pd.DataFrame(x.index,index=x.index)) for x in lst]
-        lst = [x.setDF( x.iloc[:,:1]) for x in lst]
+#         lst = [x.setDF( x.iloc[:,:1]) for x in lst]
+        lst = [x.drop( x.columns,1) for x in lst]
     res = reduce(lambda x,y :x.mergeByIndex(y,how=how,**kwargs),lst)
     
     if as_index:
@@ -337,8 +404,22 @@ def concat(*args,**kwargs):
 class geneList(countMatrix):
     def __init__(self,C=None,colName=None,rowName=None,**kwargs):
         super(geneList,self).__init__(C=len(rowName) * [1],rowName=rowName, **kwargs)
-        self.astype('int')
-        
+#         self.astype('int')
+        col = self.columns[0]
+        self[col]= self[col].astype(int)
+        add_predictProba(self)
+#         self.add_predictProba()
+# geneList.        
+def add_predictProba(glist):
+    mdl = pyutil.util_obj()
+    def f(vals):
+        res = np.nan_to_num(vals).astype(int)
+        res = pyutil.oneHot(res)
+        return res
+    mdl.predict_proba =  f
+    glist.model = mdl
+    return glist
+
         
 #### Obsolete
 

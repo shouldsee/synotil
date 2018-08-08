@@ -290,12 +290,13 @@ flatten_keepname(){
 }
 export -f flatten_keepname
 
-indexGenome ()
+routine_indexGenome ()
 {
-    F=$(echo *.fa);
-    faidx -i chromsizes $F > ${F%.fa}.sizes
+#     F=$(echo *.fa);
+    IN=${1}
+    faidx -i chromsizes $IN > ${IN%.*}.sizes
 }
-export -f indexGenome
+export -f routine_indexGenome
 
 checkVars ()
 {
@@ -325,9 +326,11 @@ tabCut(){
 export -f tabCut
 addFunc () 
 { 
-    func=$1;
+    echo
+    local func=$1;
     type $func | tail -n +2;
     echo export -f $func
+    echo
 }
 export -f addFunc
 erun () 
@@ -396,11 +399,11 @@ uniqCount ()
 export -f uniqCount
 quickFasta()
 {
-    IN=$1
-    FI=${2:-$FA_GENOME}
+    local IN=$1
+    local FI=${2:-$FA_GENOME}
     checkVars IN FI
-    OUT=`basename ${IN%.*}`.fa
-    bedtools getfasta -s -fi $FI -bed $IN -fo $OUT 
+    local OUT=`basename ${IN%.*}`.fa
+    bedtools getfasta -name+ -s -fi $FI -bed $IN -fo $OUT 
 }
 export -f quickFasta
 
@@ -446,6 +449,27 @@ routine_mast()
 }   
 export -f routine_mast
 
+# routine_tomtom()
+# {
+#     local PROG=mast
+#     local IN1=$1
+#     local IN2=$2    
+#     local ALI1=`basename ${IN1%.*}`
+#     local ALI2=`basename ${IN2%.*}`
+#     local OPT="${@:3}"
+#     local OPT="-w -remcor $OPT"
+#     local ODIR=`cmd2dir $PROG $OPT $ALI1 $ALI2`; mkdir -p $ODIR
+# #     echo []PROG=$PROG
+# #     echo []OPT=$OPT
+# #     echo []ODIR=$ODIR
+# #     type cmd2dir
+#     local CMD="$PROG -oc $ODIR $OPT $IN1 $IN2"
+#     echo $CMD
+#     [[ $DRY -eq 1 ]] || $CMD 2>&1 | tee $ODIR/${PROG}.log
+# }   
+# export -f routine_tomtom
+
+
 cpLink()
 {
     cp -l "$@" || cp "$@"
@@ -470,3 +494,81 @@ runWithTimeLog()
 }
 export -f runWithTimeLog
     
+routine_fimo () 
+{ 
+    local IN=$1;
+    local ODIR="PROG\=fimo_IN=`basename ${IN%.*}`";
+    local OPT="${@:2}";
+    local PROG=fimo;
+    local CMD="$PROG --oc $ODIR  $OPT $IN";
+    echo $CMD;
+    [[ $DRY -eq 1 ]] || $CMD
+}
+export -f routine_fimo
+
+routine_findSummit () 
+{ 
+    local IN=$1;
+    local ALI=`basename ${IN%.*}`;
+    checkVars IN GSIZE;
+    bedtools slop -i $IN -pct -r -0.5 -l -0.5 -g $GSIZE | tee ${ALI}_summit\=yes.bed | head
+}
+export -f routine_findSummit
+
+quickTargz () 
+{ 
+    local IN=`readlink -f $1`;
+    local ALI=`basename $IN`;
+    rm -f ${ALI}.tar.gz;
+    ls -1 "$IN" > .${ALI}.tmp;
+    tar -cvzf ${ALI}.tar.gz -C $IN `cat .${ALI}.tmp`
+}
+export -f quickTargz
+    
+trimN () 
+{ 
+    local IN=$1;
+    local N=${2:-'4-'};
+    local CMD="cut -c${N} $IN";
+    echo $CMD;
+    [[ $DRY -eq 1 ]] || { 
+        $CMD > "${IN}.tmp" && mv "${IN}.tmp" "$IN";
+        echo "[Trimmed] $IN"
+    }
+}
+export -f trimN
+bed_sortMerge () 
+{ 
+    local BED=$1;
+    local merge_arg="${@:2:-test}";
+    [[ $merge_arg -eq "" ]] && { 
+        merge_arg="-c 4 -o mean"
+    };
+    local CMD="bedtools sort -i $BED -g $GSIZE > ${BED}.sorted ;
+    bedtools merge -i ${BED}.sorted $merge_arg";
+    (>&2 echo $CMD);
+    [[ $DRY -eq 1 ]] || eval $CMD
+}
+export -f bed_sortMerge
+
+
+prompt_yn () 
+{ 
+    local MSG=$1;
+    while true; do
+        read -p "$MSG: (y/n)" yn;
+        case $yn in 
+            [Yy]*)
+                break
+            ;;
+            [Nn]*)
+                exit
+            ;;
+            *)
+                echo "Please answer yes(y) or no(n)"
+            ;;
+        esac;
+    done
+}
+export -f prompt_yn
+

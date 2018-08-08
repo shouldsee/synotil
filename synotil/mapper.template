@@ -1,0 +1,8 @@
+
+INDEX=$1
+SCRIPT=pipeline_rnaseq.sh
+OPT="-p -t4"
+OUTDIR=$HOME/data/syno3_PW/RNA-seq/Mapped_data
+
+ls $OUTDIR >tmp
+parallel --gnu -j1 "echo pipeline_mapper.sh $OPT {} $SCRIPT $OUTDIR"<$INDEX | tee ${INDEX%.*}.sh

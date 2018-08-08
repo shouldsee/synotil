@@ -1,1 +1,1 @@
-import ptn
+import CountMatrix as scount

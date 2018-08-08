@@ -3,6 +3,7 @@
 import CountMatrix
 from CountMatrix import *
 import pymisca.vis_util as pyvis; reload(pyvis)
+import pymisca.util as pyutil; reload(pyutil)
 plt = pyvis.plt
 import textwrap
 import xlsxwriter
@@ -107,6 +108,10 @@ class panelPlot(list):
             super(panelPlot, self).__getslice__(*args),
             **dct)
         return self
+    def setAttr(self,**kwargs):
+        for k,v in kwargs.items():
+            setattr(self,k,v)
+        return self
         
     def validate(self,):
         for x in self:
@@ -114,7 +119,8 @@ class panelPlot(list):
 #             assert hasattr(x,'render'),'element "%s" does not support render()' % x.__repr__()
         return True
     
-    def _render(self, obj, axs= None, look = 'patch',  figsize=[14,6], **kwargs):
+    def _render(self, obj, axs= None, look = 'patch',  figsize=[14,6],
+                shortName=1,**kwargs):
         '''[CORE]: Contains rendering methods for different types of data
 '''
         if axs is None:
@@ -151,7 +157,7 @@ class panelPlot(list):
             if vlim is not None:
                 axb.set_ylim(vlim)
             
-        axb.set_xlim(0,len(obj))
+        axb.set_xlim(0-0.5,len(obj)-0.5)
         axb.grid(color='black',axis='x',linestyle='--')
         axb.set_xticks(np.linspace(0,len(obj),20+1))
         axb.set_ylabel('')
@@ -161,7 +167,7 @@ class panelPlot(list):
 
 
         #### Add row label within each track
-        colnames = obj.colName_short()
+        colnames = obj.colName_short() if shortName else obj.columns
 #         colnames = obj.columns
         for i,col in enumerate(colnames):
             axa.text(1., i,
@@ -172,9 +178,7 @@ class panelPlot(list):
                 )
         
         ### Add track name
-        name = str(obj.name); lst = name.split('_')
-        lst = textwrap.wrap(lst[0],20) if len(lst) <= 1 else lst
-        maxLine = 8; trackName = '\n'.join(lst[:maxLine])        
+        trackName = pyutil.formatName(obj.name)
         axa.text(-.0, sum(axa.get_ylim())/2.,
                  trackName,
                  horizontalalignment='right',
@@ -207,6 +211,7 @@ class panelPlot(list):
         
     def render(self,  figsize= None,
               index=None, how = 'outer', order = None,
+               shortName=1,
               silent= 1):
         
         if not self._compiled:
@@ -215,7 +220,7 @@ class panelPlot(list):
             self.joinIndex(how=how) if how is not None else None
             self.orderBy(order=order) if order is not None else None
             
-        figsize = self.figsize or self.autoFigsize()
+        figsize = figsize or self.figsize or self.autoFigsize()
 
         fig,axsLst = plt.subplots(len(self),3,figsize=figsize,sharex='col',
 #                                   frameon = False,
@@ -230,7 +235,8 @@ class panelPlot(list):
         for i in range(len(self)):
             axs, ele = axsLst[i], self[i]            
 #             ax = axs[1]
-            self._render(ele, axs=axs, look = ele.look,silent = silent)
+            self._render(ele, axs=axs, look = ele.look,silent = silent,
+                        shortName=shortName)
         title = 'N=%d'%len(ele); 
         axsLst[0][1].set_title(title)
         
@@ -321,6 +327,7 @@ order: A DataFrame which will be sorted to obatin the ordering
             idx = self.index
         if order is not None:
             df = order.reindex(idx)
+            pyutil.reset_columns(df)
             df = df.sort_values(by=list(df.columns),axis=0)
             self.index = idx = df.index
         return idx

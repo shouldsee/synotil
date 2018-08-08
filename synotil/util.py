@@ -1,14 +1,13 @@
 
 # coding: utf-8
 
-# In[ ]:
+# ####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
+# #### Written for BrachyPhoton at SLCU
 
+# ####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
+# #### Written for BrachyPhoton at SLCU
 
-####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
-#### Written for BrachyPhoton at SLCU
-
-
-# In[87]:
+# In[3]:
 
 
 if __name__=='__main__':
@@ -25,7 +24,7 @@ def to_tsv(df,fname,header= None,index=None, **kwargs):
     return fname
 
 
-# In[69]:
+# In[2]:
 
 
 INDEX = '/media/pw_synology3/BrachyPhoton/raw/index'
@@ -44,7 +43,7 @@ import matplotlib.cm as cm
 
 
 import sys
-modCurr = sys.modules[__name__]
+sutil = modCurr = sys.modules[__name__]
 
 
 
@@ -132,93 +131,65 @@ def histoLine(xs,BINS=None,log= 0,**kwargs):
         pass
     l =plt.plot(ct,ys,**kwargs)
     return l
-def qc_Avg(C,axs = None,xlim = None,ylim = None, silent=1):
-    if axs is None:
-        if not silent:
-            fig,axs= plt.subplots(1,3,figsize=[14,3])
-    assert C.shape[1]<150
-    MEAN = C.mean(axis=1,keepdims=1).squeeze()
-    STD = C.std(axis=1,keepdims = 1).squeeze()
-    # plt.hist(X) 
-    # plt.hist(X[1])
-    X = MEAN[None,:]
 
-    MIN,MAX = X.min(),np.percentile(X,99)
-    BINS = np.linspace(MIN,MAX,100)
-    CV = STD/MEAN
-    if not silent:
-        xlim = xlim if xlim is not None else np.span(MEAN,99.9)
-        ylim = ylim if ylim is not None else np.span(STD,99.9)
-        BX = np.linspace(*xlim, num=30)
-        BY = np.linspace(*ylim, num=50)
-#         xlim = np.span(BX)
-#         ylim = np.span(BY)
-        plt.sca(axs[0])
-        for i in range(1):
-            histoLine(X[i],BINS,alpha=0.4)
+matHist = pyvis.matHist
+abline = pyvis.abline
 
-        plt.grid(1)
-        plt.xlabel('$E(X)$')
-        plt.xlim(xlim)
-
-        plt.sca(axs[1])
-
-        i = 10000
-        idx = np.random.randint(len(MEAN),size=i)
-        x,y = MEAN[idx],STD[idx]
-        # plt.hist2d(MEAN.squeeze(),STD.squeeze(),(50,50))
-        # plt.show()
-        plt.plot(x,y,'.')
-        plt.grid(1)
-        abline()
-        plt.xlabel('$E(X)$')
-        plt.ylabel('$Std(X)$')
-        plt.xlim(xlim)
-        plt.ylim(ylim)
-
-        plt.sca(axs[2])
-
-        ct,BX,BY = np.histogram2d(MEAN,STD,(BX,BY))
-        plt.pcolormesh(BX,BY,np.log1p(ct).T,)
-    #     plt.gca().matshow(np.log1p(ct),aspect='auto')
-        plt.xlabel('$E(X)$')
-        plt.ylabel('$Std(X)$')
-    return (MEAN,STD,CV),axs
-def qcAvg(*args,**kwargs):
-    '''Legacy support''' 
-    return qc_Avg(*args,**kwargs)
-
-def qc_meanVar(C,clu,axs=None):
-    ''' C of shape (n_gene, n_condition)
-    Points colored by cluster
-    '''
-    clu = np.array(clu)
-    nClu = np.max(clu)+1
+def qc_2var(xs,ys,xlab='$x$',ylab='$y$',markersize=None,clu=None,xlim=None,ylim=None,axs = None):
+    ''' Plot histo/scatter/density qc for two variables
+'''
     if axs is None:
         fig,axs= plt.subplots(1,3,figsize=[14,3])
-    for ci in range(nClu):
-        idx = np.where(clu==ci)[0]
-        CC = C[idx,:]
-        STAT,axs = qcAvg(CC,axs=axs)
-    ax = axs[1]
-#     ax.set_alpha(0.5)
-    MEAN = C.mean(axis=1,keepdims=1).squeeze()
-    STD = C.std(axis=1,keepdims = 1).squeeze()
-    xlim = np.span(MEAN,99.)
-    ylim = np.span(STD,99.)
-    ax.set_xlim(0,5);ax.set_ylim(0,2)
-    return ((MEAN,STD,STD/MEAN),axs)
+    xs = np.ravel(xs)
+    ys = np.ravel(ys)
+    xlim = xlim if xlim is not None else np.span(xs,99.9)
+    ylim = ylim if ylim is not None else np.span(ys,99.9)
+    BX = np.linspace(*xlim, num=30)
+    BY = np.linspace(*ylim, num=50)
+#         xlim = np.span(BX)
+#         ylim = np.span(BY)
+    if clu is not None:
+        pass
+    else:
+        clu = [0]*len(xs)
+    clu = np.ravel(clu)
     
-def matHist(X,idx=None,XLIM=[0,200],nbin=100):    
-    plt.figure(figsize=[12,4])
-    if idx is not None:
-        X = X[idx]
-    MIN,MAX = X.min(),np.percentile(X,99)
-    BINS = np.linspace(MIN,MAX,nbin)
-    for i in range(len(idx)):
-        histoLine(X[i],BINS,alpha=0.4,log=1)
-    plt.xlim(XLIM)
-    plt.grid()
+    df = pd.DataFrame({'xs':xs,'ys':ys,'clu':clu})
+    nMax = 3000
+    for k, dfc in df.groupby('clu'):
+        if len(dfc)>nMax:
+            dfcc = dfc.sample(nMax)
+        else:
+            dfcc = dfc
+#         print k,dfc
+#         xs,ys,_ = dfcc.values.T
+        xs,ys = dfcc['xs'].values, dfcc['ys'].values
+        xs = xs.ravel()
+        ys = ys.ravel()
+        
+        plt.sca(axs[0])
+        histoLine  (xs,BX,alpha=0.4)    
+        plt.sca(axs[1])
+        plt.scatter(xs,ys,markersize,marker='.')
+        
+        plt.sca(axs[2])
+        ct,BX,BY = np.histogram2d(xs, ys,(BX,BY))
+        plt.pcolormesh(BX,BY,np.log1p(ct).T,)
+    
+    plt.sca(axs[0])
+    plt.grid(1)
+    plt.xlabel(xlab)
+    plt.xlim(xlim)
+
+    plt.sca(axs[1])
+    plt.grid(1)
+    abline()
+    plt.xlabel(xlab);plt.ylabel(ylab)
+    plt.xlim(xlim);plt.ylim(ylim)
+
+    plt.sca(axs[2])
+    plt.xlabel(xlab); plt.ylabel(ylab)
+    return axs
     
 def getCV(xs):
     return np.std(xs)/np.mean(xs)
@@ -229,13 +200,7 @@ def getCol(dfs,COLUMN='Coverage'):
     ctraw = np.array(ctraw)
     return ctraw
 
-def abline(k=1,y0=0):
-    '''Add a reference line
-    '''
-    MIN,MAX=plt.gca().get_xlim()
-    f = lambda x: k*x+y0
-    plt.plot([MIN,MAX],[f(MIN),f(MAX)],'b--')
-    print MIN,MAX
+
     
 def subset(dfs,idx):
     return [df.iloc[idx] for df in dfs]
@@ -354,19 +319,6 @@ def preprocess(C,std=1):
     return C
 
 
-def msgGMM(model = None, train_data = None,name='test',**kwargs):
-    mdl = model
-    s = '''
-Name:{name}
-Converged:{cvg}
-min_logL: {logL}
-(lower-bound of) MEAN logL :{mlogL}'''.format(
-        name=name,
-         cvg=mdl.converged_,
-         logL = mdl.lower_bound_,
-         mlogL=mdl.lower_bound_/len(train_data) if not train_data is None else mdl.lower_bound_
-                                )
-    return s
 
 # def sortLabel(Y,X,#return_pos=0
 #              ):
@@ -638,136 +590,356 @@ def qc_GeneExpr(exprMat,idx=None,
 # In[68]:
 
 
-def qc_matrix(C):
-    d = pyutil.collections.OrderedDict()
-    d['Mean'],d['Std'],d['Shape'] = C.mean(),C.std(),C.shape
-    s = '[qc_matrix]%s'% pyutil.packFlat([d.items()],seps=['\t','='])[0]
-    return s
+# def qc_matrix(C):
+#     d = pyutil.collections.OrderedDict()
+#     d['Mean'],d['Std'],d['Shape'] = C.mean(),C.std(),C.shape
+#     s = '[qc_matrix]%s'% pyutil.packFlat([d.items()],seps=['\t','='])[0]
+#     return s
     
 #     (M,V,CV) = 
 
 
-# In[86]:
+# In[ ]:
 
 
-def stdNorm(X):
-    X = meanNorm(X).copy()
-    STD = np.std(X,axis=1,keepdims=1); pos = np.squeeze(STD>0);
-    X[pos] = X[pos]/STD[pos]
-    return X
-def meanNorm(X):
-    X = (X-X.mean(axis=1,keepdims=1))
-    return X
-def ctNorm(X):
-    X = (X-X.mean(axis=1,keepdims=1))
-    return X
-def identityNorm(X):
-    return X
-def fit_BGM_AllNorm(C,normLst=None,algoLst=None,ALI='Test',**kwargs):
-    if normLst is None:
-        normLst = [stdNorm,meanNorm,ctNorm,identityNorm]
-    if algoLst is None:
-        algoLst = ['DPGMM','DDGMM','GMM',]
-    mdls = {}
-    for normF in normLst:
-        for algo in algoLst:
-            mdls[normF.__name__] = fit_BGM(C,normF=normF,
-                                           ALI=ALI,
-                                           algo = algo,
-                                           **kwargs)
-#     np.save(ALI,mdls,)        
-    return mdls
+# import 
 
 
-def fit_BGM(C,
-            ALI = 'Test',
-            normF = identityNorm,
-            stdPer = 0,
-            rowName=None,
-            colName=None,
-            nClu = 25,
-            maxIt = 1000,
-            algo = 'DPGMM',
-#            algoLst = ['DPGMM'],
-           alpha = .1,
-            covariance_type = 'diag',
-#             covariance_type = None,
-#             **kwargs
-           ):
+# In[65]:
+
+
+if __name__=='__main__':
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
+# !python compile_meta.ipynb && echo '[succ]'
+
+
+# In[ ]:
+
+
+#### patches for BGM model that allows easy reordering of components
+#### This does not work very well because self._estimate_log_weights() assumes an inherent ordering
+# reload(pyutil)
+
+
+# In[ ]:
+
+
+import sklearn.mixture as skmix
+digamma = skmix.bayesian_mixture.digamma
+def __getitem__(self,ind):
+#     import pymisca.util as pyutil
+    getter = pyutil.GitemGetter(ind)
+    lst = [
+        'means_',
+        'mean_precision_',
+        'covariances_',
+        'degrees_of_freedom_',
+        'precisions_',
+        'precisions_cholesky_',
+        'weights_',
+          ]
+    for k in lst:
+        val = getattr(self,k)
+        setattr(self, k, getter(val))
+    k = 'weight_concentration_'
+    val = getattr(self,k)
+    val = tuple(getter(v) for v in val)
+    setattr(self,k,val)    
+    
+    od = self.getorder()
+    self.order = getter(od)
+    
+    return self
+def getorder(self):
+    if not hasattr(self,'order'):
+        self.order =  range(len(self))
+    else:
+        self.order = self.order
+    od = self.order
+    return od
+
+def __len__(self,):
+    return len(self.means_)
+
+def _estimate_log_weights(self):        
+    if self.weight_concentration_prior_type == 'dirichlet_process':
+        od = self.getorder()
+        rod = np.argsort(od)
+        digamma_sum = digamma(self.weight_concentration_[0] +
+                              self.weight_concentration_[1])
+        digamma_a = digamma(self.weight_concentration_[0])
+        digamma_b = digamma(self.weight_concentration_[1])
+        return (digamma_a - digamma_sum +
+                np.hstack((0, 
+                           np.cumsum( (digamma_b - digamma_sum) [rod])[:-1] 
+                          ))[od]
+               )
+    else:
+        # case Variationnal Gaussian mixture with dirichlet distribution
+        return (digamma(self.weight_concentration_) -
+                digamma(np.sum(self.weight_concentration_)))
+    
+def reorderByMSQ(mdl):
+    '''Reorder the components of a GMM with a slicing call
+'''
+    od = np.sum(mdl.means_**2,axis=1).argsort()[::-1]
+    mdl = __getitem__(mdl,od.tolist())
+    return mdl
+
+
+def test_BGM_reorder():
+# if 1:
+    import copy
+    mdl = resA.model
+    X = resA.values
+#     od = np.sum(mdl.means_**2,axis=1).argsort().tolist()
+    
+#     mm = copy.deepcopy(mdl)[od]
+    mm = sutil.reorderByMSQ( copy.deepcopy(mdl) )
+    od1 = np.argsort(mdl.getorder())
+    od2 = np.argsort(mm.getorder())
+
+    v1 = mdl._estimate_log_prob(X=X)
+    v2 = mm._estimate_log_prob(X)
+    assert np.all(v1[:,od1]==v2[:,od2])
+
+    v1 = mdl._estimate_log_weights()
+    v2 = mm._estimate_log_weights()
+    assert np.all(v1[od1]==v2[od2])
+if __name__ =='__main__':
+    test_BGM_reorder()
+    
+    
+
+
+# In[58]:
+
+
+lst = ['BayesianGaussianMixture','GaussianMixture',]
+for clsn in lst:
+    cls = getattr(skmix,clsn)
+    for mthd in [__getitem__,__len__, reorderByMSQ]:        
+        setattr(cls,mthd.__name__, mthd)
+    for mthd in [ _estimate_log_weights, getorder]:
+        if clsn == 'BayesianGaussianMixture':
+            setattr(cls,mthd.__name__, mthd)
+
+
+# In[137]:
+
+
+from sklearn.mixture.gaussian_mixture import *
+_estimate_gaussian_covariances_diag = skmix.gaussian_mixture._estimate_gaussian_covariances_diag
+_estimate_gaussian_covariances_tied = skmix.gaussian_mixture._estimate_gaussian_covariances_tied
+_estimate_gaussian_covariances_full = skmix.gaussian_mixture._estimate_gaussian_covariances_full
+_estimate_gaussian_covariances_spherical = skmix.gaussian_mixture._estimate_gaussian_covariances_spherical
+
+def _estimate_gaussian_parameters(X, resp, reg_covar, covariance_type,fixMean=0):
+    """Estimate the Gaussian distribution parameters.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        The input data array.
+
+    resp : array-like, shape (n_samples, n_components)
+        The responsibilities for each data sample in X.
+
+    reg_covar : float
+        The regularization added to the diagonal of the covariance matrices.
+
+    covariance_type : {'full', 'tied', 'diag', 'spherical'}
+        The type of precision matrices.
+
+    Returns
+    -------
+    nk : array-like, shape (n_components,)
+        The numbers of data samples in the current components.
+
+    means : array-like, shape (n_components, n_features)
+        The centers of the current components.
+
+    covariances : array-like
+        The covariance matrix of the current components.
+        The shape depends of the covariance_type.
+    """
+    nk = resp.sum(axis=0) + 10 * np.finfo(resp.dtype).eps
+    means = np.dot(resp.T, X) / nk[:, np.newaxis] * (1 - fixMean)
+    covariances = {"full": _estimate_gaussian_covariances_full,
+                   "tied": _estimate_gaussian_covariances_tied,
+                   "diag": _estimate_gaussian_covariances_diag,
+                   "spherical": _estimate_gaussian_covariances_spherical
+                   }[covariance_type](resp, X, nk, means, reg_covar)
+    return nk, means, covariances
+def _m_step(self, X, log_resp):
+    """M step.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+
+    log_resp : array-like, shape (n_samples, n_components)
+        Logarithm of the posterior probabilities (or responsibilities) of
+        the point of each sample in X.
+    """
+    n_samples, _ = X.shape
+#     print self.means_
+    nk, xk, sk = _estimate_gaussian_parameters(
+        X, np.exp(log_resp), self.reg_covar, self.covariance_type,fixMean=self.fixMean)
+#     print self.means_
+    self._estimate_weights(nk)
+    self._estimate_means(nk, xk)
+    self._estimate_precisions(nk, xk, sk)
+skmix.bayesian_mixture._estimate_gaussian_parameters =  _estimate_gaussian_parameters
+skmix.BayesianGaussianMixture._m_step = _m_step
+skmix.BayesianGaussianMixture.fixMean = 0
+
+
+# In[54]:
+
+
+# skmix.GaussianMixture._estimate_log_weights??
+
+
+# In[35]:
+
+
+if __name__=='__main__':
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
+# !python compile_meta.ipynb && echo '[succ]'
+
+
+# In[36]:
+
+
+def normANDproba(mdlDF,X,normF=None):
+    '''Apply normalisation and then 
+'''
+    model = mdlDF.model
+    normF = getattr(sutil,mdlDF.param['normF']) if normF is None else normF
+    X = X.values if isinstance(X,pd.DataFrame) else X
+    X = normF(X)
+    Y = pyutil.predict_proba_safe(model,X)
+    return Y
+
+
+
+import norm
+lst = ['ctNorm',
+      'identityNorm',
+       'meanNorm',
+       'stdNorm',
+       'meanNormPCA',
+       'meanNormProj',
+      ]
+[setattr(modCurr,name,
+       getattr(norm,name)) for name in lst] 
+import modelRoutine
+submod  = modelRoutine
+lst= ['fit_BGM']
+[setattr(modCurr,name,
+       getattr(submod,name)) for name in lst] 
+
+
+# def fit_BGM_AllNorm(C,normLst=None,algoLst=None,ALI='Test',**kwargs):
+#     if normLst is None:
+#         normLst = [stdNorm,meanNorm,ctNorm,identityNorm]
 #     if algoLst is None:
-#         algoLst = ['DPGMM','DDGMM','GMM',]    
-    try:
-        DIR,ALI = ALI.rsplit('/',1)
-    except:
-        DIR='.'
-    os.system('mkdir -p %s'%(DIR))
-    if isinstance(C,pd.DataFrame):
-        rowName,colName,C = C.index.values, C.columns, C.values
-        ALI = getattr(C,'name','Test')
-        pass
-    if stdPer > 0 :
-        assert stdPer < 100,'Percentile must < 100, Got %d instead'%stdPer
-        (MEAN,STD,CV),_ = qc_Avg(C)
-        pIdx = STD > np.percentile(STD, stdPer)        
-        rowName = np.array(rowName)[pIdx]; C = C[pIdx]
-        
-    import sklearn.mixture as skmix
-    common = {'n_components': nClu,
-          'verbose':2,
-         'max_iter':maxIt,
-             'covariance_type':covariance_type,
-             }
-    mdlLst = {'DPGMM':skmix.BayesianGaussianMixture(weight_concentration_prior_type='dirichlet_process',
-                                        weight_concentration_prior=alpha,
-                                       **common),
-          'GMM':skmix.GaussianMixture(**common),
-          'DDGMM':skmix.BayesianGaussianMixture(weight_concentration_prior_type='dirichlet_distribution',
-                                        weight_concentration_prior=alpha,
-                                       **common),
-         }
-    mdls = {}
-    X = normF(C)
-    print qc_matrix(X)
-#     raise Exception('test')
-#     for mdlName,mdl in mdlLst.items():
-#     if mdlName not in algoLst:
-#         continue
-    mdl = mdlLst[algo]
-    NAME = '%s_stdPer=%d_norm=%s_genre=%s_nClu=%d_maxIt=%d'%(
-        ALI,
-        stdPer,
-        normF.__name__,
-        algo,
-        mdl.n_components,
-        maxIt
-    )
+#         algoLst = ['DPGMM','DDGMM','GMM',]
+#     mdls = {}
+#     for normF in normLst:
+#         for algo in algoLst:
+#             mdls[normF.__name__] = fit_BGM(C,normF=normF,
+#                                            ALI=ALI,
+#                                            algo = algo,
+#                                            **kwargs)
+# #     np.save(ALI,mdls,)        
+#     return mdls
+
+
+# In[19]:
+
+
+import sklearn.cluster as skclu
+def fit_KMEANS(C,ALI='Test',
+    maxIt = 1000,
+    nClu  = 30,
+    DIR='.',
+    model_only = 0,
+    random_state = None,
+    reorder=0,
+):
+    X = C
+    algo = 'KMEANS'
+    param = {'genre':algo,
+            'nClu':nClu,
+            'maxIt':maxIt,
+             'randomState':random_state,
+            }
+    if not isinstance(X,pd.DataFrame):
+        X = pd.DataFrame(X)
+    param.update(getattr(X,'param',{}))
+    X,rowName,colName = X.values,X.index,X.columns
+    
+    
+    if ALI =='Test':
+        ALI = getattr(X,'name','Test')
+    
+    mdl = skclu.KMeans(n_clusters=nClu,n_init=1,max_iter=maxIt,
+                       random_state=random_state)
+    NAME = '%s_%s'%(ALI, pyutil.dict2flat(param))
+    
     print '[MSG] Now Fitting Model:%s'%NAME
     d = {'name': NAME,
          'train_data':X,
          'colName':colName,
          'rowName':rowName,
-         'param':{
-             'stdPer':stdPer,
-             'normF':normF.__name__,
-             'nClu':mdl.n_components,
-             'genre':algo,
-             'covariance_type':mdl.covariance_type
-         },
-       }
+         'param':param,
+       }    
+    
     try:
         logFile = open('%s/%s.log'%(DIR,NAME),'w',0)
         with pyutil.RedirectStdStreams(logFile):
             mdl.fit(X)
             d.update({'suc':1,'model':mdl})
-#             logFile.close()
         print "[SUCC] to fit Model:%s"%(NAME,)
-        print msgGMM(mdl)
     except Exception as e:
         print "[FAIL] to fit Model:%s due to :'%s'"%(NAME,e)
         d.update({'suc':0})
+    if model_only:
+        d['train_data'] = None
+        d['rowName'] = None
+        d['colName'] = None
+    
+
     np.save('%s/%s'%(DIR,NAME),d)
-    d = ctMat.countMatrix.from_dict(d)
-    return d
+    d = scount.countMatrix.from_dict(d)
+    return d    
+
+
+# In[28]:
+
+
+if __name__=='__main__':
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
+# !python compile_meta.ipynb && echo '[succ]'
+
+
+# In[27]:
+
+
+get_ipython().run_cell_magic(u'writefile', u'qcmsg.py', u"\ndef msgGMM(model = None, train_data = None,name='test',**kwargs):\n    mdl = model\n    s = '''\nName:{name}\nConverged:{cvg}\nmin_logL: {logL}\n(lower-bound of) MEAN logL :{mlogL}'''.format(\n        name=name,\n         cvg=mdl.converged_,\n         logL = mdl.lower_bound_,\n         mlogL=mdl.lower_bound_/len(train_data) if not train_data is None else mdl.lower_bound_\n                                )\n    return s")
+
+
+# In[32]:
+
+
+get_ipython().run_cell_magic(u'writefile', u'modelRoutine.py', u'\nimport sklearn.mixture as skmix\nimport pymisca.util as pyutil\nnp = pyutil.np; pd = pyutil.pd\nimport os\nimport qcmsg\nimport CountMatrix as scount\n\ndef fit_BGM(C,\n            ALI = \'Test\',\n#             DIR = \'\'\n#             normF = identityNorm,\n            stdPer = 0,\n            rowName=None,\n            colName=None,\n            nClu = 25,\n            maxIt = 1000,\n            algo = \'DPGMM\',\n            DIR= \'.\',\n#            algoLst = [\'DPGMM\'],\n            alpha = .1,\n            covariance_type = \'diag\',\n            fixMean = 0,\n            reorder=1,\n            model_only =0,\n            random_state= None,\n#             covariance_type = None,\n#             **kwargs\n           ):\n    \'\'\'\nFit an BayesianGaussianMixture() model from sklearn\n\'\'\'\n#     if algoLst is None:\n#         algoLst = [\'DPGMM\',\'DDGMM\',\'GMM\',]    \n    try:\n        DIR,ALI = ALI.rsplit(\'/\',1)\n    except:\n        DIR= DIR\n    os.system(\'mkdir -p %s\'%(DIR))\n    \n    \n    ###### Manage meta attributes of the model ########\n    param = {\n            \'fixMean\':fixMean,\n             \'stdPer\':stdPer,\n             \'nClu\':nClu,\n             \'genre\':algo,\n             \'covarianceType\': covariance_type,\n              \'maxIt\' : maxIt,\n              \'randomState\':random_state,\n         }\n    param.update(getattr(C,\'param\',{}))\n    \n    ####### Convert to numpy arrary ######\n    if isinstance(C,pd.DataFrame):\n        if  ALI==\'Test\':\n            ALI = getattr(C,\'name\',\'Test\') \n\n        rowName,colName,C = C.index.values, C.columns, C.values\n        pass\n    \n    ##### Old routine that filter by STD ###########\n    if stdPer > 0 :\n        assert stdPer < 100,\'Percentile must < 100, Got %d instead\'%stdPer\n        (MEAN,STD,CV),_ = qc_Avg(C)\n        pIdx = STD > np.percentile(STD, stdPer)        \n        rowName = np.array(rowName)[pIdx]; C = C[pIdx]\n    print \'[ALI]=\',ALI\n    nFeat = C.shape[-1]\n        \n    #####====== Defnitions of fitters=========#######\n    \n    ###### Arguments shared among fitters ######\n    common = {\'n_components\': nClu,\n          \'verbose\':2,\n         \'max_iter\':maxIt,\n             \'covariance_type\':covariance_type,\n              \'random_state\':random_state,\n             }\n    if fixMean:\n        mean_precision_prior = 1E-128\n        mean_prior = [0.]*nFeat\n    else:\n        mean_precision_prior  = None\n        mean_prior = None\n        \n    ####### List of fitters ######\n    mdlLst = {\'DPGMM\':skmix.BayesianGaussianMixture(weight_concentration_prior_type=\'dirichlet_process\',\n                                        weight_concentration_prior=alpha,\n                                        mean_precision_prior = mean_precision_prior,\n                                        mean_prior = mean_prior,\n                                       **common),\n          \'GMM\':skmix.GaussianMixture(**common),\n          \'DDGMM\':skmix.BayesianGaussianMixture(weight_concentration_prior_type=\'dirichlet_distribution\',\n                                        weight_concentration_prior=alpha,\n                                        mean_precision_prior = mean_precision_prior,\n                                        mean_prior = mean_prior,\n                                       **common),\n         }\n    \n    \n    ############# Select model by "algo"####\n    X = C\n    print pyutil.qc_matrix(X)\n    mdl = mdlLst.get(algo,None)\n    assert mdl is not None, \'Algorithm %s not found \'%algo\n    \n    NAME = \'%s_%s\'%(ALI,pyutil.dict2flat(param))    \n    print \'[MSG] Now Fitting Model:%s\'%NAME\n    \n    \n    \n    ####### Meta data of the training Data #######\n    d = {\'name\': NAME,\n         \'train_data\':X,\n         \'colName\':colName,\n         \'rowName\':rowName,\n         \'param\':param,\n       }\n    \n    \n    ##### Fitting model and caching the result to specified DIR/NAME ####\n    try:\n        logFile = open(\'%s/%s.log\'%(DIR,NAME),\'w\',0)\n        with pyutil.RedirectStdStreams(logFile):\n            mdl.fixMean= fixMean\n            mdl.fit(X)\n#             reorderByMSQ(mdl)\n            if reorder:\n                mdl.reorderByMSQ()\n            d.update({\'suc\':1,\'model\':mdl})\n#             logFile.close()\n        print "[SUCC] to fit Model:%s"%(NAME,)\n        print qcmsg.msgGMM(mdl)\n    except Exception as e:\n        print "[FAIL] to fit Model:%s due to :\'%s\'"%(NAME,e)\n        d.update({\'suc\':0})\n    if model_only:\n        d[\'train_data\'] = None\n        d[\'rowName\'] = None\n        d[\'colName\'] = None\n    np.save(\'%s/%s\'%(DIR.rstrip(\'/\'),NAME),d)\n    d = scount.countMatrix.from_dict(d)\n    return d\n')
+
+
+# In[153]:
+
+
 def make_qc_Model(vX,tX=None,normF = None):
 
     ##### Datasets: Training
@@ -785,7 +957,7 @@ def make_qc_Model(vX,tX=None,normF = None):
         if not suc:
             print '[]Skipping failed Model %s'%name
             return 
-        print msgGMM(name=name,**d)    
+        print qcmsg.msgGMM(name=name,**d)    
         fig,axs = plt.subplots(3,2,gridspec_kw={"width_ratios": (.1, .9),
                                                    'wspace':0.1,
                                                     'hspace':0.5,
@@ -813,7 +985,15 @@ def make_qc_Model(vX,tX=None,normF = None):
     return qc_Model
 
 
-# In[79]:
+# In[160]:
+
+
+if __name__=='__main__':
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
+# !python compile_meta.ipynb && echo '[succ]'
+
+
+# In[116]:
 
 
 def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
@@ -831,7 +1011,10 @@ def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
          'vmax':vmax,
          'cname':cname,
         }    )
-    C = df.values
+    if isinstance(df, pd.DataFrame):
+        C = df.values
+    else:
+        C = df
     (M,V,CV),axsLst = qcAvg(C,silent=0,xlim=xlim,ylim = ylim)
     plt.suptitle(title)
     inter = -len(C)//1000
@@ -851,11 +1034,132 @@ def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
     return (M,V,CV),axsLst
 
 
+def qc_minfo(resA=None,resB=None,
+             cluA= None,cluB = None,X=None,
+             CUTOFF=30,xlab=None,ylab=None,maxLine=4,vlim = [-2,2],
+            silent=1,short=1,):
+    '''display log-bias matrix
+'''
+        
+    if resA is not None:
+        ##### Managing your index is crucialllllllllll!
+        if X is not None:
+            cluA = resA.model.predict_proba(X)
+            cluB = resB.model.predict_proba(X)
+        else:
+            index =resA.index
+            resA = resA.reindex(index)
+            resB = resB.reindex(index)
+            cluA = resA.model.predict_proba(resA.values)
+            cluB = resB.model.predict_proba(resB.values)
+#         N = len(index)
+    else:
+        assert cluA is not None
+    N = len(cluA)
+    cluA = np.log(cluA)
+    cluB = np.log(cluB)
+#     axis = 1
+#     A = pyutil.get_logP(df = resA ,  axis = axis)
+#     B = pyutil.get_logP(df = resB ,  axis = axis)
+    # A = prob2Onehot(A);B=prob2Onehot(B)
+    # B = A
+    # A = B
+
+    
+    logC = pyutil.proba_crosstab(cluA,cluB) #### estimate joint distribution of labels
+    margs =pyutil.get_marginal(logC) #### calculate marginal
+    entC = pyutil.wipeMarg(logC,margs =margs)      #### wipe marginals from jointDist
+
+#     CUTOFF = 30
+    MI = pyutil.entExpect(logC)
+    # MI = np.sum(np.exp(logC)*entC)
+    H1 = -pyutil.entExpect(margs[0])
+    H2 = -pyutil.entExpect(margs[1])
+
+    if not silent:
+        print 'MI=',MI
+        print 'H1=',H1
+        print 'H2=',H2
+        fig,axs= plt.subplots(1,2,figsize=[14,4]);axs=axs.ravel()
+        if resA is not None:
+            xlab = resA.formatName(maxLine=maxLine) if xlab is None else xlab
+        if resB is not None:
+            ylab = resB.formatName(maxLine=maxLine) if ylab is None else ylab
+        
+        im = entC
+        if CUTOFF is not None:
+            xidx = np.where((np.exp(margs[0].ravel())*N)>CUTOFF)[0]
+            yidx = np.where((np.exp(margs[1].ravel())*N)>CUTOFF)[0]
+            im = im[xidx][:,yidx]
+        
+        pyvis.heatmap(logC,transpose=1,cname='log proba', ax=axs[0])
+        pyvis.heatmap(im.T,
+                      vlim=vlim,
+                      cname='log likelihood ratio',
+                      ax=axs[1],
+                      xlab = xlab,
+                      ylab = ylab,
+                      ytick=yidx,
+                      xtick=xidx)
+    if short:
+        return [MI,H1,H2]
+    else:
+        return [MI,H1,H2], [entC,logC,margs]
+
+
+# In[ ]:
+
+
+import PanelPlot as spanel
+def make_interViewer(resA,resB,):
+    cluA = clu = resA.predict()
+    cluB = clu = resB.predict()
+    
+    tracks = [spanel.fixCluster(cluA),
+              spanel.fixCluster(cluB), 
+              resA, 
+              resB]    
+    stats = pd.concat([cluA,cluB],axis=1); 
+
+    def view_inter(ca,cb,concise=0,
+                   cluA=cluA,cluB=cluB,tracks=tracks,stats = stats):
+        indA = cluA.loc[cluA[0] == ca].index
+        indB = cluB.loc[cluB[0] == cb].index
+        indAll =indA.intersection(indB)
+        indAny = indA + indB
+        if concise==0:
+            inds = [indAny,indA,indB,indAll,]
+        elif concise == 1:
+            inds = [indAll]
+        elif concise == -1:
+            inds = [indAny]
+        print tuple(x.shape for x in inds)
+        views = []
+        for index in inds:
+            pp = spanel.panelPlot(tracks)
+            # index = df.index
+    #         index = cluA.loc[cluA[0] == ca].index
+            pp.compile(index=index,order = stats)
+            pp.render();
+            views += [pp]
+        return views
+    return view_inter,(tracks,stats)
+
+
+# In[158]:
+
+
+if __name__=='__main__':
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
+# !python compile_meta.ipynb && echo '[succ]'
+
+
 # In[52]:
 
 
 
-import CountMatrix as ctMat
+import CountMatrix as scount
+ctMat = scount
 # from countMatrix import countMatrix
 countMatrix = ctMat.countMatrix
 sortLabel = ctMat.sortLabel
@@ -1036,32 +1340,25 @@ def log2p1(x):
     return res
 
 
-# In[25]:
+# In[ ]:
 
 
-def panelPlot(self, cols = None, axs = None):
-    ''' Take a pandas.DataFrame and plots data into panels
-    Especially useful when combined with sort_values()
-'''
-    if axs is None:
-        fig,axs = plt.subplots(6,1,figsize=[14,11],sharex='all')
-    axs = axs.flat
+def readModels(DIR):
+    DIR = DIR.rstrip('/')
+    fnames = pyutil.shellexec("find %s/*randomState*.npy | grep normF"%DIR
+                         ).splitlines()
 
-    dfc = self
-    xs = range(len(dfc))
+    res = map(scount.countMatrix.from_npy,fnames)
+    meta= pyutil.flat2meta([x.replace('/','_').rsplit('.',1)[0] for x in fnames])
+    meta = pd.DataFrame(map(lambda x:dict([y for y in x if len(y)==2]),meta))
+    meta['fname_'] = list(fnames) 
+    meta['obj'] = res
+#     meta.model = [x.model for x in res]  
+#     meta['model'] = [[x.model] for x in res]  
+#     meta['model'] = [x.model for x in res]
 
-    args = [4,]
-
-    for i,col in enumerate(cols):
-        plt.sca(axs[i])
-        plt.scatter(xs,dfc[col].values,*args)
-        plt.ylabel(col)
-
-    for ax in axs[1:]:
-        plt.sca(ax)
-    #     plt.colorbar(res)
-        plt.grid()
-    return axs
+    meta_model = meta
+    return meta_model
 
 
 # In[54]:
@@ -1078,7 +1375,8 @@ def dfContrast(dfRef,dfObs):
     return df
 
 def tidyBd(C1,match = 'Brad', ):
-    C1 = ctMat.countMatrix.from_DataFrame(C1)
+    if not isinstance(C1,ctMat.countMatrix):
+        C1 = ctMat.countMatrix.from_DataFrame(C1)
     C1 = C1.fillna(0)
     if match is not None:
         C1 = C1.filterMatch(match)
@@ -1279,9 +1577,10 @@ bedHeader = [x.split(':')[1] for x in bedHeader]
 
 
 ####
+from qcplots import *
 
 
-# In[85]:
+# In[9]:
 
 
 if __name__=='__main__':
@@ -1289,7 +1588,7 @@ if __name__=='__main__':
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[9]:
+# In[14]:
 
 
 if __name__=='__main__':
