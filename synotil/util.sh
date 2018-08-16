@@ -403,7 +403,10 @@ quickFasta()
     local FI=${2:-$FA_GENOME}
     checkVars IN FI
     local OUT=`basename ${IN%.*}`.fa
-    bedtools getfasta -name+ -s -fi $FI -bed $IN -fo $OUT 
+
+    local CMD="bedtools getfasta -name+ -s -fi $FI -bed $IN -fo $OUT "
+	echo $CMD
+	[[ $DRY -eq 1 ]] || eval "$CMD"
 }
 export -f quickFasta
 
@@ -571,4 +574,24 @@ prompt_yn ()
     done
 }
 export -f prompt_yn
+
+
+routine_fasta2bed(){
+local IN=$1
+local ALI=${IN%.*}
+routine_indexGenome $IN
+local OFILE=`basename ${ALI}.located.bed`
+awk -F$'\t' 'BEGIN {OFS = FS} {print $1,"0",$2}' ${ALI}.sizes > $OFILE
+echo $OFILE
+}
+export -f routine_fasta2bed
+
+routine_fastaAddLoc(){
+local IN=$1
+local ALI=`basename ${IN%.*}`
+local OFILE=`routine_fasta2bed $IN`
+quickFasta $OFILE $IN
+echo ${OFILE%.bed}.fa
+}
+export -f routine_fastaAddLoc
 
