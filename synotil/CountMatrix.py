@@ -64,14 +64,45 @@ def fillNA_withRef(dd, ref):
         odf = ref.reindex(index=dd.index[naX_uniq],columns=dd.columns[naY_uniq])
         dd.train_data[(naX,naY)] = odf.values[(naX_mapped, naY_mapped)]
     return dd    
-def wrapDFMethod(DFMethod):
+
+
+#### !!!This is not working
+import decorator
+
+
+import wrapt
+@wrapt.decorator
+def wrapDFMethod( f, instance, args, kwargs):
+# @decorator.decorator
+# def wrapDFMethod(f,*args,**kwargs):
     '''Wrap a pd.DataFrame method to return countMatrix instance
 '''
-    def newMethod(self,*args,**kwargs):
-        df = DFMethod(self,*args,**kwargs)
-        obj= self.setDF(df=df)
-        return obj
-    return newMethod
+#     self = args[0]
+    self = instance
+    res = f(*args,**kwargs)
+    obj = self.setDF(df=res)
+    return obj
+#     def newMethod(self,*args,**kwargs):
+#         df = DFMethod(self,*args,**kwargs)
+#         obj= self.setDF(df=df)
+#         return obj
+#     newMethod.__name__ = DFMethod.__name__
+#     newMethod.__doc__ = DFMethod.__doc__    
+#     return newMethod
+
+# def wrapDFMethod(DFMethod):
+#     '''Wrap a pd.DataFrame method to return countMatrix instance
+# '''
+#     def newMethod(self,*args,**kwargs):
+#         df = DFMethod(self,*args,**kwargs)
+#         obj= self.setDF(df=df)
+#         return obj
+#     newMethod.__name__ = DFMethod.__name__
+#     newMethod.__doc__ = DFMethod.__doc__    
+# #     newMethod.func_code = DFMethod.func_code
+#     ####  ====TBC====
+# #     newMethod.im_func.func_code = DFMethod.im_func.func_code
+#     return newMethod
 
 # class countMatrix(pyutil.pd.DataFrame):
 
@@ -112,6 +143,14 @@ knows how to plot itself
     @property
     def name(self):
         return str(self.name_).split('/')[-1]
+    
+    def name4param(self,keys=None):
+        d = self.param
+        if keys is not None:
+            d = pyutil.dictFilter(d,keys) 
+        name = pyutil.dict2flat(d)
+        self.set_name(name)
+        return self.name
     def formatName(self,name=None,**kwargs):
         name = self.name if name is None else name
         res = pyutil.formatName(name,**kwargs)
@@ -135,6 +174,7 @@ knows how to plot itself
             setattr(self,k,v)        
     def get_config(self):
         config = {'name':self.name,
+                  'fname':self.fname,
                  'look':self.look,
                  'cmap':self.cmap,
                  'vlim':self.vlim,
@@ -222,8 +262,17 @@ knows how to plot itself
             print '\n [WARN] unable to simplify condName. Exception:%s'%e
         finally:
             return condName
+        
+    def dropAll(self):
+        self.drop(self.columns, 1, inplace=1)
+        return self
+    def toGeneList(self):
+        self.dropAll()
+        self[self.fname] = 1
+        return self
     def heatmap(self,C=None,vlim=None,cname = 'test',
-                reorder=0,ax=None,
+                xlab='Condition',
+                reorder=0,ax=None,transpose=1,
                 **kwargs):
         vlim = self.vlim if vlim is None else vlim
         reorder and self.reorder();
@@ -233,9 +282,9 @@ knows how to plot itself
         im = pyvis.heatmap(C,
 #                            ylab=(None if not i else 'Gene'),
 #                            ytick = (None if not i else gCur['Gene Name']),
-                           xlab='Condition',
+                           xlab=xlab,
                            xtick=condName,
-                           transpose=1,
+                           transpose=transpose,
                            cname = cname,
                            vlim = vlim,
                           ax=ax,**kwargs
@@ -262,8 +311,10 @@ knows how to plot itself
         import util as sutil
         (M,SD,CV), _ = sutil.qc_Avg( self,silent=1)
         # df = pd.concat([M,SD,CV],axis=1)
+        MSQ = M**2 + SD**2
         df = pd.DataFrame({'M':M,
-                           'SD':SD, 
+                           'SD':SD,
+                           'MSQ':MSQ,
                            'CV':CV})
 #         df = pd.DataFrame({'M':M.values,
 #                            'SD':SD.values, 

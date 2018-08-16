@@ -8,14 +8,22 @@ import CountMatrix as scount
 
 
 def stdNorm(X):
-    X = meanNorm(X).copy()
+    deco = 0
+    if isinstance(X,scount.countMatrix):
+        deco =1
+        df = X 
+        
+    X = meanNorm(X)
+    if isinstance(X, pd.DataFrame):
+        X = X.values
+    X = X.copy()
+    assert isinstance(X,np.ndarray)
     STD = np.std(X,axis=1,keepdims=1); pos = np.squeeze(STD>0);
     X[pos] = X[pos]/STD[pos]
 
-    param = getattr(X,'param',{})    
-    param['normF'] = 'stdNorm'
-#     X.param = param
-    
+    if deco:
+        X = df.setDF(X)
+        X.param['normF'] = 'stdNorm'
     return X
 def meanNorm(X):
     deco = 0
@@ -64,7 +72,7 @@ def meanNormProj(X):
         X.param['normF'] = 'meanNormProj'        
     return X
 import sklearn.decomposition as skdecomp
-def meanNormPCA(X,cutoff=1.0):
+def meanNormPCA(X,cutoff=1.0, withModel=0):
     name = 'meanNormPCA'
     deco = 0
     if isinstance(X,scount.countMatrix):
@@ -74,13 +82,18 @@ def meanNormPCA(X,cutoff=1.0):
     X = meanNorm(X)
     X = X.values if isinstance(X, pd.DataFrame) else X
     
+    X0 = X
     mdl = skdecomp.PCA()
     mdl.fit(X)
     
     X = mdl.transform(X)
     
-    idx = np.cumsum(mdl.explained_variance_ratio_) >= cutoff
-    X = X[:,:np.argmax(idx) + 1]
+    first = np.cumsum(mdl.explained_variance_ratio_) >= cutoff
+    idx   =np.argmax(first) + 1
+    mdl.components_ = mdl.components_[:idx]
+#     mdl.mean_ = mdl.mean_[:,idx]
+
+    X = X[:,:idx]
         
     param = getattr(X,'param',{})    
     param['normF'] = name
@@ -88,8 +101,11 @@ def meanNormPCA(X,cutoff=1.0):
 
     if deco:
         X = df.setDF(X)
-        X.param['normF'] = name        
-    return X
+        X.param['normF'] = name     
+    if withModel:
+        return (X,mdl,X0)
+    else:
+        return X
 def ctNorm(X):
     X = (X-X.mean(axis=1,keepdims=1))
     return X

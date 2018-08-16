@@ -64,13 +64,14 @@ def qc_dist(D,vlim=None,silent=1,axs = None,
 
 import PanelPlot as spanel
 import pandas as pd
-def make_compareClus(tks,stats = None):
+def make_compareClus(tks,stats = []):
     if not isinstance(tks,list):
         tks = [tks]
     def compareClus(clus,tks=tks,stats0=stats, figsize=[14,5],
-                    shortName=0,
+                    shortName=0,L = None,
                     how= 'left',**kwargs):
 
+#         stats0 = 
         cluTracks = map(spanel.fixCluster,clus)
         
         tracks = cluTracks + tks
@@ -80,7 +81,7 @@ def make_compareClus(tks,stats = None):
         )
 
 #         stats = pd.concat(clus + stats,axis=1)
-        L = len(clus)
+        L = len(clus) if L is None else L
 #         L = len(stats.columns)
         figs = []
         for coli in range(L):

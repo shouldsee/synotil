@@ -5,6 +5,7 @@ np = pyutil.np; pd = pyutil.pd
 import os
 import qcmsg
 import CountMatrix as scount
+import qcplots
 
 def fit_BGM(C,
             ALI = 'Test',
@@ -24,6 +25,7 @@ def fit_BGM(C,
             reorder=1,
             model_only =0,
             random_state= None,
+            dbg=0,
 #             covariance_type = None,
 #             **kwargs
            ):
@@ -101,6 +103,8 @@ Fit an BayesianGaussianMixture() model from sklearn
     
     ############# Select model by "algo"####
     X = C
+    if dbg >= 2:
+        qcplots.qc_Avg(C,silent=0)
     print pyutil.qc_matrix(X)
     mdl = mdlLst.get(algo,None)
     assert mdl is not None, 'Algorithm %s not found '%algo
