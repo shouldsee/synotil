@@ -227,12 +227,15 @@ def qc_cumAvg(X,axis=0,
     return (M,SE,CV,Lx),axs
 
 
-def qc_Avg(C, silent=1,axis=1,nMax = 150, **kwargs):
+def qc_Avg(C, silent=1,axis=1,
+#            nMax = 150, ### depracated size check
+           **kwargs):
+    
 #     if axs is None:
 #         if not silent:
 #             fig,axs= plt.subplots(1,3,figsize=[14,3])
     C = np.array(C)
-    assert C.shape[axis]<nMax
+#     assert C.shape[axis]<nMax
     MEAN = C.mean(axis=axis,)
     STD = C.std(axis=axis,)
     # plt.hist(X) def parseBedmap
@@ -283,3 +286,35 @@ def qc_meanVar( C, clu, axs=None,xlim=None,ylim=None,silent=0):
     ax = axs[2]
     ax.set_xlim(xlim);ax.set_ylim(ylim)
     return ((MEAN,STD,STD/MEAN),axs)
+
+def qc_pileUp(bwt,ax=None,silent =0,
+             sigMax = 20,
+             ):
+    '''bwt: A dataFrame containing the peak regions from a bigWig track
+    sigMax: throw away peaks with average above this maximum
+    sigMax: clip the signal at this maximum 
+'''
+    if bwt.index.duplicated().any():
+        bwt =bwt.reset_index(drop=1,inplace=False)
+    bwt.qc_Avg()
+    index = bwt.summary.query('M<%d'%sigMax).index
+    bwtc = bwt.reindex(index)
+    xs = bwt.columns
+
+    (M,SD,CV), _ = qc_Avg(bwtc.T,nMax=1E100)
+    SE = SD/len(M)**0.5
+
+    if not silent:
+        if ax is None:
+            fig,ax0s= plt.subplots(1,3,figsize=[14,3])    
+            i = -1
+            i += 1;ax=axs[i]; plt.sca(ax)
+        else:
+            axs = None
+        plt.plot(M,'b')
+        plt.plot(M+2*SE, 'b--', alpha=0.5)
+        plt.plot(M-2*SE, 'b--', alpha=0.5)
+#         plt.title(pyutil.basename(fname))
+        plt.grid(1)
+        
+    return (M, SE), ax

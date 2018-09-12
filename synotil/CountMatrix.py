@@ -125,6 +125,8 @@ knows how to plot itself
                  vlim = None,
                  fname = None,
                  model = None,
+                 colMeta = None,
+                 rowMeta = None,
                  **kwargs):
         df = pyutil.init_DF( C=C,rowName=rowName,colName = colName)  
 #         print self.__class__,countMatrix, isinstance(self,countMatrix,)
@@ -135,14 +137,39 @@ knows how to plot itself
         self.vlim = vlim
         self.fname = fname
         self.model = model
+        self.colMeta_ = colMeta
+        self.rowMeta_ = rowMeta
         self.param = {'normF':'identityNorm',
                      }        
         self.set_config( test=None,**kwargs)
         self.test= None
         
     @property
+    def colMeta(self):
+        return self.colMeta_
+    @property
+    def rowMeta(self):
+        return self.rowMeta_
+    
+    def relabel(self,colLabel=None,rowLabel=None):
+        '''Decorate the data frame to be ready for plotting
+    '''
+        if colLabel is None and rowLabel is None:
+            self.columns = self.colMeta.index
+            self.index   = self.rowMeta.index
+#             raise Exception('must supply one argument')
+        if colLabel is not None:
+            self.columns = self.colMeta[colLabel]             
+        if rowLabel is not None:
+            self.index   = self.rowMeta[rowLabel] 
+        return self        
+    
+    @property
     def name(self):
         return str(self.name_).split('/')[-1]
+    
+# 
+
     
     def name4param(self,keys=None):
         d = self.param
@@ -160,6 +187,7 @@ knows how to plot itself
         d = dict(self.__dict__)
 #         del d['logger']
         return d
+
     def __setstate__(self, d):
         self.__dict__.update(d) # I *think* this is a safe way to do it
         
@@ -184,14 +212,20 @@ knows how to plot itself
         s = '<countMatrix: name=%s>'% self.name
         return s
     
-    def setDF(self,df):
-        config = self.get_config()
+    def setDF(self,df,update=0):
+#         config = self.get_config()
+        configDict= self.__getstate__()
+        [configDict.pop(k) for k in list(configDict) if k.startswith('_')]
+        
         if isinstance(df,pd.Series):
             df = df.values
+            
         if isinstance(df, pyutil.np.ndarray):
-            if df.shape == self.shape:
+            
+            if update and (df.shape == self.shape):
                 self.loc[:,:] = df
                 res = self
+                
             else:
                 res = pyutil.init_DF(df, rowName = self.index)
         else:
@@ -200,10 +234,13 @@ knows how to plot itself
             assert isinstance( res, pd.DataFrame)
 #             print self.__class__, res.__class__
             res = self.__class__.from_DataFrame(df = res,)            
-            
-        res.set_config(**config)
+        res.__setstate__(configDict)
+#         res.set_config(**config)
         return res
-
+    def subSampleColumns(self,stepSize=5):
+        df = self.reindex(columns = self.columns[::stepSize])
+        return df
+    
 
     @classmethod
     def from_DataFrame(cls,df=None,fname=None,name=None,index_col = None, **kwargs):
@@ -270,24 +307,34 @@ knows how to plot itself
         self.dropAll()
         self[self.fname] = 1
         return self
-    def heatmap(self,C=None,vlim=None,cname = 'test',
+    def heatmap(self,C=None,vlim=None,
+                cname = 'test',
                 xlab='Condition',
+                ytick = None,xtick = None,
                 reorder=0,ax=None,transpose=1,
+                short = 1,
                 **kwargs):
         vlim = self.vlim if vlim is None else vlim
         reorder and self.reorder();
         C = self.values if C is None else C
-        condName = self.colName_short()
+        
+        if xtick is None:
+            xtick = self.colName_short() if short else self.columns
+            
+        if ytick is None:
+            ytick = self.index if len(self) < 500 else None
+        
 #         im = pyvis.heatmap(C[cidx][sidx],
         im = pyvis.heatmap(C,
 #                            ylab=(None if not i else 'Gene'),
 #                            ytick = (None if not i else gCur['Gene Name']),
                            xlab=xlab,
-                           xtick=condName,
                            transpose=transpose,
                            cname = cname,
                            vlim = vlim,
-                          ax=ax,**kwargs
+                           xtick=xtick,
+                           ytick =ytick,
+                           ax=ax,**kwargs
                           ) 
         
         if 0:
@@ -320,7 +367,11 @@ knows how to plot itself
 #                            'SD':SD.values, 
 #                            'CV':CV.values})
         df = df.set_index( self.index)
-        df['per'] = pyutil.dist2ppf(df.SD)
+        df['per_SD'] = pyutil.dist2ppf(df.SD)
+        df['per_M'] = pyutil.dist2ppf(df.M)
+        df['per_MSQ'] = pyutil.dist2ppf(df.MSQ)
+        df['per_CV'] = pyutil.dist2ppf(df.CV)
+        df['per'] = df['per_SD']
 
         self.summary = df
         return self        
@@ -392,13 +443,16 @@ knows how to plot itself
             vals =vals[0]
         setattr(self, which, vals)
         return self
+    @wrapDFMethod
+    def transpose(self,):
+        return super(countMatrix,self).transpose()
 
 countMatrix.fillNA_withRef = fillNA_withRef
 countMatrix.addBox = addBox
 countMatrix.mergeByIndex = wrapDFMethod(pyutil.mergeByIndex)
 countMatrix.filterMatch = wrapDFMethod(pyutil.filterMatch)
 countMatrix.to_tsv = pyutil.to_tsv
-
+countMatrix.melt =  pyutil.melt
 
 
 
@@ -411,7 +465,9 @@ countMatrix.sort_values = wrapDFMethod(pd.DataFrame.sort_values)
 countMatrix.reindex = wrapDFMethod(pd.DataFrame.reindex)
 countMatrix.astype = wrapDFMethod(pd.DataFrame.astype)
 
-lst = ['clip','mean','max','min','std','dropna','get','rename']
+lst = ['clip','mean','max','min','std','dropna','get','rename',
+#        'transpose'
+      ]
 for name in lst:
     setattr(countMatrix,name,
             wrapDFMethod( getattr( pd.DataFrame, name)) )

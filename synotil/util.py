@@ -7,7 +7,7 @@
 # ####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
 # #### Written for BrachyPhoton at SLCU
 
-# In[3]:
+# In[39]:
 
 
 if __name__=='__main__':
@@ -270,7 +270,7 @@ def combine_csv(fnames,CUTOFF=6,idCol = 'Gene ID'):
         dfs.append(df)
 
     geneRef.loc[:,['FPKM','TPM']] = 0
-    geneRef.sort_values('Gene ID',inplace=1)
+    geneRef.sort_values('Gene ID',inplace=True)
     geneRef = geneRef.reset_index()
     geneSet = geneAny
     geneValid = geneRef[geneRef['Gene ID'].isin(geneSet)] 
@@ -282,7 +282,7 @@ def combine_csv(fnames,CUTOFF=6,idCol = 'Gene ID'):
     return dfs,(geneRef,geneValid)
 def padWithRef(df,ref,idCol = 'Gene ID'):
     df = df.append( ref[~ref[idCol].isin(df[idCol])])
-    df.sort_values( idCol,inplace=1)
+    df.sort_values( idCol,inplace=True)
     df = df.reset_index()
     return df
 def routine_combineCSV(fnames,CUTOFF=1,idCol='Gene ID'):
@@ -311,9 +311,9 @@ def routine_combineCSV(fnames,CUTOFF=1,idCol='Gene ID'):
 def preprocess(C,std=1):
     C = np.log1p(C)
 #     C = C[clu==1,:][:,meta_wt_LD.index]
-    C = (C-C.mean(axis=1,keepdims=1))
+    C = (C-C.mean(axis=1,keepdims=True))
     if std:
-        STD= C.std(axis=1,keepdims=1)
+        STD= C.std(axis=1,keepdims=True)
         nonCst = (STD!=0).squeeze()
         C[nonCst] = C[nonCst]/STD[nonCst]
     return C
@@ -324,9 +324,9 @@ def preprocess(C,std=1):
 #              ):
 #     ### Sorting by maximum
 # #         X = vX
-#     X  = X-X.mean(axis=1,keepdims=1)
+#     X  = X-X.mean(axis=1,keepdims=True)
 #     coord = np.arange(X.shape[-1])[None]
-#     wt_X = (X == X.max(axis=1,keepdims=1))*coord
+#     wt_X = (X == X.max(axis=1,keepdims=True))*coord
 # #         wt_X = X * coord
 #     cis = list(range(max(Y)+1))
 #     pos =  [wt_X[Y == ci,:].mean() for ci in cis]
@@ -382,7 +382,7 @@ def qcGMM(model,train_data,name='Test',valid_data = None,pt=None,axs = None,**kw
     ax.set_title(name)
 
 
-# In[124]:
+# In[69]:
 
 
 if __name__=='__main__':
@@ -1134,7 +1134,7 @@ def make_interViewer(resA,resB,):
     return view_inter,(tracks,stats)
 
 
-# In[158]:
+# In[38]:
 
 
 if __name__=='__main__':
@@ -1358,7 +1358,7 @@ def dfContrast(dfRef,dfObs):
     ''' Contrast two DataFrames
     '''
     C = dfObs.values - dfRef.values
-    df = pd.DataFrame(C); df.set_index(dfObs.index,inplace=1)
+    df = pd.DataFrame(C); df.set_index(dfObs.index,inplace=True)
     df.columns = pyutil.metaContrast(dfRef.columns,dfObs.columns)
     return df
 
@@ -1369,10 +1369,11 @@ def tidyBd(C1,match = 'Brad', ):
     if match is not None:
         C1 = C1.filterMatch(match)
     C1.sanitiseIndex(ptn.BdAcc)
+    C1.index.name = 'GeneAcc'
     return C1
 
 
-# In[84]:
+# In[66]:
 
 
 #### Data I/O
@@ -1388,26 +1389,34 @@ def extractBigWig_worker(lines, bwFile = None,stepSize = 1, bw = None):
     ''' Helper mapper for querying BigWig
 '''
     bw = pyBigWig.open(bwFile)
+    chromL = bw.chroms()
+    
     lines = [x for x in lines if x]
-    nField = lines[0].strip().split('\t').__len__()    
-    def parse(line, nField = nField):
+    nField = lines[0].strip().split('\t').__len__() 
+    res = []
+    for line in lines:
+#     def parse(line, nField = nField):
         if line is None:
             return None
         cols = line.strip().split('\t')
         if nField >= 6:
             chrom, start,end, (id, score, strand) = cols[0],int(cols[1]),int(cols[2]),cols[3:6]
         else:
-            strand = '+'            
-        if nField is 5:
-            assert 0, 'ehhhh'
-        if nField is 4:
-            chrom, start,end, id = cols[0],int(cols[1]),int(cols[2]),cols[3]
-        else:
-            chrom, start,end = cols[0],int(cols[1]),int(cols[2])
-            id = 'NoID'
+            strand = '+'
+            
+            if nField is 5:
+                assert 0, 'ehhhh'
+            elif nField is 4:
+                chrom, start,end, id = cols[0],int(cols[1]),int(cols[2]),cols[3]
+            else:
+                chrom, start,end = cols[0],int(cols[1]),int(cols[2])
+                id = 'NoID'
+                
         if chrom not in bw.chroms():
             o = None
         else:
+            start = max(0,start)
+            end = min(chromL[chrom],end)
             sec = bw.values(chrom, start, end, numpy=0)
             if strand is not '-':
                 vals = sec[::stepSize]
@@ -1415,16 +1424,24 @@ def extractBigWig_worker(lines, bwFile = None,stepSize = 1, bw = None):
                 vals = sec[::-stepSize]
                 
             o = vals
-        return (id,o)
-    res = map( parse, lines) 
+#         return (id,o)
+        res+=[(id,o)]
+#     res = map( parse, lines) 
     bw.close()
     return res
 
 def extractBigWig(bwFile,bedFile,stepSize=1,NCORE=1,
-                  mapChunk = None, span = None):
+                  mapChunk = None, 
+#                   span = None
+                  outIndex = None,
+                 ):
     ''' Extracting a signal matrix for each bed region
 '''
     assert NCORE == 1,'Multi-thread is slower here..., so dont! '
+    if outIndex is None:
+        outIndex = bwFile
+    elif callable(outIndex):
+        outIndex = outIndex(bwFile)
 #     assert stepSize == 1,'Not implemented'        
     with pyBigWig.open(bwFile) as bw:
         it = open(bedFile)
@@ -1467,7 +1484,18 @@ def extractBigWig(bwFile,bedFile,stepSize=1,NCORE=1,
     out = pd.DataFrame(out).set_index([list(ids)])
     out.columns = stepSize * np.arange(0, out.shape[-1], )
             # Do something with the values...
-    out = ctMat.countMatrix.from_DataFrame(df=out)
+    if outIndex is not None:        
+        tmp = out.T
+        tmp['ind'] = outIndex
+        tmp.set_index( 'ind', append=1,inplace=True)
+        tmp = tmp.reorder_levels(['ind',None])        
+        tmp.index.names = ['bwFile','pos']
+        out = tmp.T
+#     out = ctMat.countMatrix.from_DataFrame(df=out)
+#     out.fname = bwFile
+    out.param = {}
+    out.param['bwFile'] = bwFile
+    out.param['bedFile'] = bedFile
     return out
 
 def findPromoter(
@@ -1512,7 +1540,7 @@ def findPromoter(
     res = pyutil.shellexec(cmd)
     print res
     return OFILE
-# %time findPromoter(INFILE='./Bdistachyon_314_v3.1.gene_exons.gtf.cds',inplace=1)
+# %time findPromoter(INFILE='./Bdistachyon_314_v3.1.gene_exons.gtf.cds',inplace=True)
 # sutil.extractBigWig = extractBigWig
 
 
@@ -1545,30 +1573,59 @@ def parseBedClosest(df = None, fname = None):
     return df
 
 
+import StringIO
+def closestAnnotation(
+    bedFile,
+    RANGE = 1000,
+    ANNOTATION_FILE=None,
+    GSIZE=None,
+):
+    '''
+    use bedtools to find the feature closest to the 
+regions contianed inthe in the given bed file.
+    The annotation will be expanded by {RANGE} bp before queryed
+    chrom.sizes must be supplied as {GSIZE} to make bedtools happy
+'''
+
+    FOUT= bedFile.split('/')[-1] 
+    FOUT = 'type=closest_bed=%s_feat=%s.tsv'%(pyutil.basename(bedFile),
+                            pyutil.basename(ANNOTATION_FILE))
+    cmd = '''
+bedtools slop -b {RANGE} -i {ANNO} -g {GSIZE} |bedtools sort > {ANNOBASE}.{RANGE}
+bedtools sort -i {bedFile} |\
+bedtools closest -d -a - -b {ANNOBASE}.{RANGE} | tee {FOUT}.tmp
+'''.format(
+        GSIZE   = GSIZE,
+        ANNO    = ANNOTATION_FILE,
+        ANNOBASE= ANNOTATION_FILE.split('/')[-1],
+        bedFile = bedFile,
+        RANGE   = RANGE,
+        FOUT    = FOUT,
+    ).strip()
+    buf = StringIO.StringIO(pyutil.shellexec(cmd,))
+    if buf.len:
+        buf.seek(0)
+        df = parseBedClosest(fname = buf)
+#         os.system('rm %s.tmp' % FOUT)
+    else:
+        assert 0,' Buffer is empty, check error msg' 
+    df = df[df['distance']==0]
+    df.to_csv(FOUT,sep='\t',index=0)
+    return FOUT
+
+
 # In[40]:
 
 
 ### dataFrame headers 
-bedHeader = '''
-0:chrom
-1:start
-2:end
-3:acc
-4:score
-5:strand
-6:FC
-7:neglogPval
-8:neglogQval
-9:summit
-'''.strip().splitlines()
-bedHeader = [x.split(':')[1] for x in bedHeader] 
+from dio import *
 
 
 ####
 from qcplots import *
 
 
-# In[9]:
+# In[68]:
 
 
 if __name__=='__main__':

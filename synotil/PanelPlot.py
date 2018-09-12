@@ -50,21 +50,11 @@ def fixCluster(ele):
     ele.cmap = cmap
     ele.look = 'patch'
     return ele
-import matplotlib.ticker as mticker
+
 # from matplotlib.ticker import NullFormatter
 
-def hide_axis(ax,which='both'):
-    if which in ['x','both']:
-#         ax.get_xaxis().set_visible(False)
-        ax.xaxis.set_major_formatter(mticker.NullFormatter())
-    if which in ['y','both']:
-        ax.yaxis.set_major_formatter(mticker.NullFormatter())
-#         ax.get_yaxis().set_visible(False)    
-    return ax
-def hide_frame(ax):
-    for spine in ax.spines.values():
-        spine.set_visible(False) 
-    return ax
+hide_axis = pyvis.hide_axis
+hide_frame= pyvis.hide_frame
 
 # ax.xaxis.set_major_formatter(NullFormatter())
 
@@ -348,14 +338,22 @@ order: A DataFrame which will be sorted to obatin the ordering
             if dd.look =='patch':
 #                 print '[A patch]'
                 lst[i] = dd.setDF(dd[dd.columns[-1:]])
+    
         for i,dd in enumerate(lst):
             if dd.name.find('type')!=-1:
                 TYPE = pyutil.flatSubset([dd.name],keep='type')[0]
             else:
                 TYPE = 'unknown'
             dd.columns = ['%s_%s'%(TYPE, col) for col in dd.columns]
+            
         res = vstack(lst, how=how)
         return res
+    
+    def splitTable(self,index=None):
+        index = self.index if index is None else index
+        lst = [x.reindex(self.index) for x in self]
+        return lst
+    
     def check_DIR(self,DIR = None):
         DIR = self.DIR if DIR is None else DIR
         pyutil.shellexec('mkdir -p %s'%DIR)
