@@ -1,7 +1,7 @@
 # reload(scount)
 
-import CountMatrix
-from CountMatrix import *
+import synotil.CountMatrix as scount
+from synotil.CountMatrix import *
 import pymisca.vis_util as pyvis; reload(pyvis)
 import pymisca.util as pyutil; reload(pyutil)
 plt = pyvis.plt
@@ -21,6 +21,10 @@ def guessLook(obj):
         dtype = obj.dtypes.iloc[0] 
         if dtype == 'int':
             look = 'patch'
+        elif dtype == 'bool':
+            look = 'tick'
+        elif dtype == 'object':
+            look = 'text'
         else:
             look = 'line'
     obj.look = look
@@ -58,6 +62,18 @@ hide_frame= pyvis.hide_frame
 
 # ax.xaxis.set_major_formatter(NullFormatter())
 
+def getPatchTicks(df,tol = 10):            
+    gp = df.reset_index().groupby(df.columns[-1])
+    m = gp.apply(lambda x: 
+
+             pd.Series(
+                 (x.index.values.mean(),len(x.index)) + pyutil.span(x.index.values) 
+             ,index=['M','LEN','MIN','MAX'],
+             ) 
+            )
+    m['tickthis'] = m.MAX - m.MIN + 1 < m.LEN + 10
+    return m.loc[m.tickthis]
+
 class panelPlot(list):
     '''Class to systematically render plots
 '''
@@ -77,6 +93,11 @@ class panelPlot(list):
         if isinstance(first[0],str):
             if len(first) == 2:
                 names, lst = zip(*lst)
+        lst = [ scount.countMatrix(x)
+               if not isinstance(x,scount.countMatrix)
+               else x
+               for x in lst
+              ]
         super(panelPlot, self).__init__(lst)
         self.set_names(names)
 #         for x in self:
@@ -109,8 +130,10 @@ class panelPlot(list):
 #             assert hasattr(x,'render'),'element "%s" does not support render()' % x.__repr__()
         return True
     
-    def _render(self, obj, axs= None, look = 'patch',  figsize=[14,6],
-                shortName=1,**kwargs):
+    def _render(self, obj, axs= None, look = 'patch',
+                figsize=[14,6],
+                tickMax = 100,
+                shortName=0, **kwargs):
         '''[CORE]: Contains rendering methods for different types of data
 '''
         if axs is None:
@@ -119,7 +142,7 @@ class panelPlot(list):
             ax =axs
         else:
             ax = axs[1]
-        assert isinstance(obj, CountMatrix.countMatrix)
+        assert isinstance(obj, scount.countMatrix)
         axa,axb,axc = axs
         axa.get_shared_y_axes().join(axa, axb)
 
@@ -127,14 +150,18 @@ class panelPlot(list):
         hide_frame(axc);hide_axis(axc); 
         
         vlim = obj.vlim
+#         xticks = np.linspace(0,len(obj),20+1)
+        xlines = np.linspace(0, len(obj), 20+1)
+        axb.set_xticks(xlines, minor = True)
+        xticks = None
+        xticklabs = None
         if look =='matrix':
             res = obj.heatmap(ax=axb,cname = None)   
-#             axs[0].fig
             plt.colorbar(mappable=res, cax = axc )
             axcy = axc.get_yaxis(); axcy.tick_right(); axcy.set_visible(True)
-#             axb.set_ylabel('')
+    
         elif look =='patch':
-            df = obj.fillna(0); df[3] = 1
+            df = obj.fillna(0); 
             res = pyvis.heatmap(
                 df.values[None,:,:3],
                 ax=axb,
@@ -142,30 +169,70 @@ class panelPlot(list):
 #                 vlim = [None,None],
 #                 vlim = [0,1]
             )           
+
+            dftick = getPatchTicks(df,tol =10)
+            if not dftick.empty:
+                xticks = dftick.M.values
+                xticklabs = dftick.index.values
+    
         elif look =='line':
             res = axb.plot(obj.values, 'x')
             if vlim is not None:
                 axb.set_ylim(vlim)
+                
+        elif look == 'tick':
+            res = axb.vlines(np.nonzero(obj.fillna(False).values),
+                              -1, 1,
+                             linewidth = 0.5,
+                             )
+        elif look == 'text':
+            objc = obj.reset_index(drop=True).dropna()
+#             axb_ymid =  sum(axb.get_ylim())/2.
+            axb_ymid = 0.
+            axb.set_ylim(-1,1)
+            def plotter(row):
+                i,val = row.name, row[0]
+                res = axb.text( i + 0. , axb_ymid, 
+                         val,
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        rotation='vertical',
+                        size='large',
+# #                          fontsize=1,
+#                         transform=axb.transAxes
+                        ) 
+            objc.apply(plotter,axis=1)
+#         print axb.get_xlim(),axb.get_ylim()
             
         axb.set_xlim(0-0.5,len(obj)-0.5)
-        axb.grid(color='black',axis='x',linestyle='--')
-        axb.set_xticks(np.linspace(0,len(obj),20+1))
+        if look not in ['tick']:
+            axb.grid(color='black',axis='x',linestyle='--',which='minor')
+        if xticks is not None:
+            axb.set_xticks(xticks)
+            axb.set_xticklabels(xticklabs)
+        else:
+            hide_axis(axb,which = 'x')
+
         axb.set_ylabel('')
-        hide_axis(axb);
-        
+        hide_axis(axb,which='y');
 
 
 
-        #### Add row label within each track
+        ############################################
+        #### Add row label within each track #######
+        ############################################
         colnames = obj.colName_short() if shortName else obj.columns
 #         colnames = obj.columns
-        for i,col in enumerate(colnames):
-            axa.text(1., i,
-                 str(col)[:20],
-                 horizontalalignment='right',
-                  verticalalignment='center',
-                  clip_on=True
-                )
+        if len(colnames) > tickMax:
+            pass
+        else:
+            for i,col in enumerate(colnames):
+                axa.text(1., i,
+                     str(col)[:25],
+                     horizontalalignment='right',
+                      verticalalignment='center',
+                      clip_on=True
+                        )
         
         ### Add track name
         trackName = pyutil.formatName(obj.name)
@@ -175,8 +242,9 @@ class panelPlot(list):
                   verticalalignment='center',                 
                 )            
         axa.yaxis.set_visible(True);axa.yaxis.set_ticks([])
-        
+    
         return axs
+    
     def namedIndex(self,index=None,geneName = None):
         index = self.index if index is None else index
         geneName = self.geneName if geneName is None else geneName
@@ -201,7 +269,7 @@ class panelPlot(list):
         
     def render(self,  figsize= None,
               index=None, how = 'outer', order = None,
-               shortName=1,
+               shortName=0,
               silent= 1):
         
         if not self._compiled:
@@ -212,7 +280,8 @@ class panelPlot(list):
             
         figsize = figsize or self.figsize or self.autoFigsize()
 
-        fig,axsLst = plt.subplots(len(self),3,figsize=figsize,sharex='col',
+        fig,axsLst = plt.subplots(len(self),3,figsize=figsize,
+#                                   sharex='col',
 #                                   frameon = False,
                                   gridspec_kw={'width_ratios':[1, 8, .15],
                                                'wspace':0.05
@@ -227,6 +296,7 @@ class panelPlot(list):
 #             ax = axs[1]
             self._render(ele, axs=axs, look = ele.look,silent = silent,
                         shortName=shortName)
+    
         title = 'N=%d'%len(ele); 
         axsLst[0][1].set_title(title)
         
@@ -237,6 +307,7 @@ class panelPlot(list):
             plt.xticks(range(len(xticks)),xticks, rotation = 'vertical')
         self.fig['handle'] = fig
         return fig 
+    
     def cache(self, cacheName = 'test', fig= None):
         fig = self.fig.get('handle',None) if fig is None else fig
         assert fig is not None
@@ -310,17 +381,22 @@ order: A DataFrame which will be sorted to obatin the ordering
         idx = vstack(self,as_index = 1, how=how)
         self.index = idx
         return idx
-    def orderBy(self, order = None, how=None ):
+    def orderBy(self, order = None, how=None, head = None ):
         if self.index is None:
             idx = self.joinIndex(how=how)
         else:
             idx = self.index
+            
         if order is not None:
             df = order.reindex(idx)
             pyutil.reset_columns(df)
             df = df.sort_values(by=list(df.columns),axis=0)
             self.index = idx = df.index
-        return idx
+            
+        if head is not None:
+            idx = self.index[:head]
+        self.index = idx
+        return self.index
     def set_names(self,names):
         if names:
             it = iter(names)
@@ -377,7 +453,7 @@ order: A DataFrame which will be sorted to obatin the ordering
             ExcelFile.close()
         return ExcelFile
     
-class geneList(countMatrix):
+class geneList(scount.countMatrix):
     def __init__(self,C=None,colName=None,rowName=None,**kwargs):
         super(geneList,self).__init__(C=len(rowName) * [1],rowName=rowName, **kwargs)
         self.astype('int')
@@ -385,7 +461,7 @@ class geneList(countMatrix):
 
 def renderByCluster(panel,clu,DIR = None, addClu = 0,ExcelFile = None):
     assert isinstance(panel,panelPlot)
-    assert isinstance(clu, CountMatrix.countMatrix)
+    assert isinstance(clu, scount.countMatrix)
 #     if panel._compiled:
 #         panel = panel.reset()
 #     if clu not in panel:
