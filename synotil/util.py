@@ -7,7 +7,7 @@
 # ####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
 # #### Written for BrachyPhoton at SLCU
 
-# In[39]:
+# In[99]:
 
 
 if __name__=='__main__':
@@ -382,11 +382,11 @@ def qcGMM(model,train_data,name='Test',valid_data = None,pt=None,axs = None,**kw
     ax.set_title(name)
 
 
-# In[69]:
+# In[1]:
 
 
 if __name__=='__main__':
-    get_ipython().system(u'jupyter nbconvert --to python tmp.ipynb')
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
 # !python compile_meta.ipynb && echo '[succ]'
 
 
@@ -396,14 +396,7 @@ if __name__=='__main__':
 #### PCA utilities
 
 import pymisca.vis_util as pyvis
-def fit_PCA(C,n_components=5,**kwargs):
-    import sklearn.decomposition.pca as skpca
-    mdl = skpca.PCA(n_components=n_components,**kwargs)
-    M = mdl.fit_transform(C)
-    
-    return {'model':mdl,
-            'train_data':C,
-            'trans_data':M,}
+from synotil.modelRoutine import fit_PCA
 
 def quickPCA(trans_data=None,model=None, COL_SER=None,index=None,**kwargs):
     M = trans_data
@@ -801,7 +794,7 @@ skmix.BayesianGaussianMixture.fixMean = 0
 # skmix.GaussianMixture._estimate_log_weights??
 
 
-# In[37]:
+# In[2]:
 
 
 if __name__=='__main__':
@@ -809,7 +802,7 @@ if __name__=='__main__':
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[36]:
+# In[1]:
 
 
 def normANDproba(mdlDF,X,normF=None):
@@ -831,6 +824,8 @@ lst = ['ctNorm',
        'stdNorm',
        'meanNormPCA',
        'meanNormProj',
+       'diffNorm',
+       'sumNorm',
       ]
 [setattr(modCurr,name,
        getattr(norm,name)) for name in lst] 
@@ -973,7 +968,7 @@ def make_qc_Model(vX,tX=None,normF = None):
     return qc_Model
 
 
-# In[160]:
+# In[1]:
 
 
 if __name__=='__main__':
@@ -984,10 +979,11 @@ if __name__=='__main__':
 # In[116]:
 
 
-def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
+def qc_Sort(df=None,fname=None,cname = 'test',vlim = [-2,2] , title = None,
             xlim = None,
             ylim = None,
             figsize2=[14,6],
+            nMax = 5000,
             **heatargs):
     vmin, vmax = vlim
     if df is None:
@@ -1003,7 +999,7 @@ def qc_Sort(fname=None,df=None,cname = 'test',vlim = [-2,2] , title = None,
         C = df.values
     else:
         C = df
-    (M,V,CV),axsLst = qcAvg(C,silent=0,xlim=xlim,ylim = ylim)
+    (M,V,CV),axsLst = qcAvg(C,silent=0,xlim=xlim,ylim = ylim,nMax=nMax)
     plt.suptitle(title)
     inter = -len(C)//1000
     
@@ -1134,7 +1130,7 @@ def make_interViewer(resA,resB,):
     return view_inter,(tracks,stats)
 
 
-# In[38]:
+# In[10]:
 
 
 if __name__=='__main__':
@@ -1373,130 +1369,24 @@ def tidyBd(C1,match = 'Brad', ):
     return C1
 
 
-# In[66]:
+# In[31]:
 
 
-#### Data I/O
+if __name__=='__main__':
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
+# !python compile_meta.ipynb && echo '[succ]'
 
 
-import numpy as np
-import pandas as pd
-import pyBigWig
-import pymisca.util as pyutil
+# In[30]:
 
-    
-def extractBigWig_worker(lines, bwFile = None,stepSize = 1, bw = None):
-    ''' Helper mapper for querying BigWig
-'''
-    bw = pyBigWig.open(bwFile)
-    chromL = bw.chroms()
-    
-    lines = [x for x in lines if x]
-    nField = lines[0].strip().split('\t').__len__() 
-    res = []
-    for line in lines:
-#     def parse(line, nField = nField):
-        if line is None:
-            return None
-        cols = line.strip().split('\t')
-        if nField >= 6:
-            chrom, start,end, (id, score, strand) = cols[0],int(cols[1]),int(cols[2]),cols[3:6]
-        else:
-            strand = '+'
-            
-            if nField is 5:
-                assert 0, 'ehhhh'
-            elif nField is 4:
-                chrom, start,end, id = cols[0],int(cols[1]),int(cols[2]),cols[3]
-            else:
-                chrom, start,end = cols[0],int(cols[1]),int(cols[2])
-                id = 'NoID'
-                
-        if chrom not in bw.chroms():
-            o = None
-        else:
-            start = max(0,start)
-            end = min(chromL[chrom],end)
-            sec = bw.values(chrom, start, end, numpy=0)
-            if strand is not '-':
-                vals = sec[::stepSize]
-            else:
-                vals = sec[::-stepSize]
-                
-            o = vals
-#         return (id,o)
-        res+=[(id,o)]
-#     res = map( parse, lines) 
-    bw.close()
-    return res
 
-def extractBigWig(bwFile,bedFile,stepSize=1,NCORE=1,
-                  mapChunk = None, 
-#                   span = None
-                  outIndex = None,
-                 ):
-    ''' Extracting a signal matrix for each bed region
-'''
-    assert NCORE == 1,'Multi-thread is slower here..., so dont! '
-    if outIndex is None:
-        outIndex = bwFile
-    elif callable(outIndex):
-        outIndex = outIndex(bwFile)
-#     assert stepSize == 1,'Not implemented'        
-    with pyBigWig.open(bwFile) as bw:
-        it = open(bedFile)
-        worker = pyutil.functools.partial(extractBigWig_worker,
-                                          bwFile =bwFile,
-                                         stepSize=stepSize,)
-#         res = map(worker,it)
-        if NCORE == 1:
-            res = map(worker,[it])
-        else:
-            it = pyutil.window(it,n=mapChunk,step=mapChunk,keep=1,)                
-            res = pyutil.mp_map(worker, it, n_cpu=NCORE,)
-        res = sum(res,[])
-#             pass 
-        ids, out  = zip(*res)
+if __name__=='__main__':
+    get_ipython().system(u'jupyter nbconvert --to python util.ipynb')
+# !python compile_meta.ipynb && echo '[succ]'
 
-    #### Replacing "None" and incomplete intervals
-    ref = next((item for item in out if item is not None),None)
-    assert ref is not None,'Cannot find an reference shape, likely wrong chromosomes'
-#     L = len(ref)
-#     L = len(res) if span is None else span //stepSize        
-    L = max(map(len,out))
-    lst = []
-    print '[L]=',L
-    for x in out:
-        if x is None:
-            y = [0.]*L
-        else:
-            Lx = len(x)
-            y = x + [0.] * (L - Lx)            
-        lst += [y]
-#         out = [[0.]*L if x is None else x for x in out]
-    out = np.array(lst)
-    out = np.nan_to_num(out)
-    
-#     MLEN = np.mean([len(x) for x in out]) 
-    MLEN='not set'
-    assert out.dtype!='O','''Unable to shape the matrix properly: 
-    %s, %s '''% (MLEN, [(type(x),x) for x in out if len(x)< MLEN] )
-    out = pd.DataFrame(out).set_index([list(ids)])
-    out.columns = stepSize * np.arange(0, out.shape[-1], )
-            # Do something with the values...
-    if outIndex is not None:        
-        tmp = out.T
-        tmp['ind'] = outIndex
-        tmp.set_index( 'ind', append=1,inplace=True)
-        tmp = tmp.reorder_levels(['ind',None])        
-        tmp.index.names = ['bwFile','pos']
-        out = tmp.T
-#     out = ctMat.countMatrix.from_DataFrame(df=out)
-#     out.fname = bwFile
-    out.param = {}
-    out.param['bwFile'] = bwFile
-    out.param['bedFile'] = bedFile
-    return out
+
+# In[107]:
+
 
 def findPromoter(
     INFILE = None,
@@ -1507,6 +1397,7 @@ def findPromoter(
     OFILE = None,
     inplace = 0,
     GSIZE = None,
+    silent=1,
 ):
     '''Find the promoter from a GTF file
 '''
@@ -1525,8 +1416,8 @@ def findPromoter(
     if filterKey is not None:
         cmd += '| grep {} \\\n'.format(filterKey)
     cmd += r'''
-    | bedtools slop -l 0 -r -1.0 -pct {opt} \
-    | bedtools slop -l {upStream} -r {downStream} {opt} \
+    | bedtools slop -s -l 0 -r -1.0 -pct {opt} \
+    | bedtools slop -s -l {upStream} -r {downStream} {opt} \
     | sed "s/\"//g"  \
     >{OFILE}
     '''.format(
@@ -1537,40 +1428,40 @@ def findPromoter(
         downStream = downStream,
         opt='%s -g %s'%(opt,GSIZE) ,    
     ).strip()
-    res = pyutil.shellexec(cmd)
-    print res
+    res = pyutil.shellexec(cmd,silent=silent)
     return OFILE
 # %time findPromoter(INFILE='./Bdistachyon_314_v3.1.gene_exons.gtf.cds',inplace=True)
 # sutil.extractBigWig = extractBigWig
 
 
 
-def parseBedmap(df = None, fname = None):
-    ''' Parse the output of bedMap
-'''
-    if df is None:
-        df = pd.read_table(fname,header = None)
+# def parseBedmap(df = None, fname = None):
+#     ''' Parse the output of bedMap
+# '''
+#     if df is None:
+#         df = pd.read_table(fname,header = None)
 
-    df = df.dropna()
+#     df = df.dropna()
     
-    df.columns = bedHeader + ['hit']
+#     df.columns = bedHeader + ['hit']
 
-    res = pyutil.explode(df,'hit','acc',';')
-    res = res.merge(df.drop('hit',1),on='acc')
-    return res
+#     res = pyutil.explode(df,'hit','acc',';')
+#     res = res.merge(df.drop('hit',1),on='acc')
+#     return res
 
-def parseBedClosest(df = None, fname = None):
-    ''' Parse the output of 'bedtools closest'
-'''
-    if df is None:
-        df = pd.read_table(fname,header = None,index_col = None)
-#     df = df.dropna()    
+# def parseBedClosest(df = None, fname = None):
+#     ''' Parse the output of 'bedtools closest'
+# '''
+#     if df is None:
+#         df = pd.read_table(fname,header = None,index_col = None)
+# #     df = df.dropna()    
 
-    header = bedHeader + pyutil.paste0([['feature_'], bedHeader]).tolist()
-    df = df.iloc[:,:18]
-    df.columns = header[:17] + ['distance']
-    df['hit'] = df['feature_acc']
-    return df
+#     header = bedHeader + pyutil.paste0([['feature_'], bedHeader]).tolist()
+#     df = df.iloc[:,:18]
+#     df.columns = header[:17] + ['distance']
+#     df['hit'] = df['feature_acc']
+#     return df
+# parseBedClosest = extract_closest 
 
 
 import StringIO
@@ -1579,6 +1470,7 @@ def closestAnnotation(
     RANGE = 1000,
     ANNOTATION_FILE=None,
     GSIZE=None,
+    silent = True,
 ):
     '''
     use bedtools to find the feature closest to the 
@@ -1602,10 +1494,18 @@ bedtools closest -d -a - -b {ANNOBASE}.{RANGE} | tee {FOUT}.tmp
         RANGE   = RANGE,
         FOUT    = FOUT,
     ).strip()
-    buf = StringIO.StringIO(pyutil.shellexec(cmd,))
+    buf = StringIO.StringIO(pyutil.shellexec(cmd,silent=silent))
     if buf.len:
-        buf.seek(0)
-        df = parseBedClosest(fname = buf)
+        buf.seek(0)      
+        header = sum( [guessBedHeader(x,prefix=k) for k,x in 
+                       [('',bedFile),
+                        ('feat',ANNOTATION_FILE)]
+                      ],
+                     [])
+        header += ['distance',]
+        df = pyutil.readData( buf,header = None,ext='tsv',guess_index=False)
+        df.columns = header
+#         df = parseBedClosest(fname = buf)
 #         os.system('rm %s.tmp' % FOUT)
     else:
         assert 0,' Buffer is empty, check error msg' 
@@ -1620,12 +1520,11 @@ bedtools closest -d -a - -b {ANNOBASE}.{RANGE} | tee {FOUT}.tmp
 ### dataFrame headers 
 from dio import *
 
-
 ####
 from qcplots import *
 
 
-# In[68]:
+# In[21]:
 
 
 if __name__=='__main__':
@@ -1633,15 +1532,39 @@ if __name__=='__main__':
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[14]:
+# In[104]:
 
 
 if __name__=='__main__':
-    get_ipython().system(u" sed -n '970,980p' < util.py")
+    get_ipython().system(u" sed -n '1490,1500p' < util.py")
 
 
 # In[154]:
 
 
 sorted(['001','005','003','004'])
+
+
+# In[92]:
+
+
+# !grep -e "inplace" ./CountMatrix.py.tmp
+
+
+# In[95]:
+
+
+# %%writefile replace.sh
+# cat $1 \
+#   |sed -e "s/inplace\=1/inplace\=True/g" \
+#   |sed -e "s/inplace\=0/inplace\=False/g" \
+#   >$1.tmp
+# mv $1.tmp -t $1
+
+
+# In[97]:
+
+
+# ! chmod +x replace.sh
+# ! find . -name "*.py" -or -name "*.ipynb" | parallel --gnu ./replace.sh
 
