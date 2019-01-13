@@ -1,11 +1,24 @@
 
 import sklearn.mixture as skmix
+import sklearn.decomposition.pca as skpca
+
 import pymisca.util as pyutil
 np = pyutil.np; pd = pyutil.pd
 import os
 import qcmsg
-import CountMatrix as scount
-import qcplots
+import synotil.CountMatrix as scount
+# import synotil.qcplots as qcplots
+
+def fit_PCA(C,n_components=5,**kwargs):
+    mdl = skpca.PCA(n_components=n_components,**kwargs)
+    M = mdl.fit_transform(C)
+    
+    resDict = {'model':mdl,
+            'train_data':C,
+            'trans_data':M,}
+
+    return pyutil.util_obj(**resDict)
+
 
 def fit_BGM(C,
             ALI = 'Test',
@@ -103,8 +116,8 @@ Fit an BayesianGaussianMixture() model from sklearn
     
     ############# Select model by "algo"####
     X = C
-    if dbg >= 2:
-        qcplots.qc_Avg(C,silent=0)
+#     if dbg >= 2:
+#         qcplots.qc_Avg(C,silent=0)
     print pyutil.qc_matrix(X)
     mdl = mdlLst.get(algo,None)
     assert mdl is not None, 'Algorithm %s not found '%algo
