@@ -4,8 +4,20 @@ import scipy.spatial.distance as spdist
 import pymisca.vis_util as pyvis
 import pymisca.util as pyutil
 plt = pyvis.plt
+import synotil.modelRoutine as smod
+import synotil.CountMatrix as scount
 
 import numpy as np
+
+def qc_PCA(df,xi=0, yi = 1, xlab=None,ylab = None,**kwargs):
+    res = smod.fit_PCA(df)
+    xs,ys = res.trans_data.T[[xi,yi]]
+    if xlab is None:
+        xlab = 'PC%d'%xi
+    if ylab is None:
+        ylab = 'PC%d'%yi
+    axs = pyvis.qc_2var(xs,ys,xlab=xlab,ylab=ylab,**kwargs)
+    return res,axs
 
 def qc_dist(D,vlim=None,silent=1,axs = None,
             cutoff=0.75,reorder = 1,method='average',
@@ -287,34 +299,262 @@ def qc_meanVar( C, clu, axs=None,xlim=None,ylim=None,silent=0):
     ax.set_xlim(xlim);ax.set_ylim(ylim)
     return ((MEAN,STD,STD/MEAN),axs)
 
-def qc_pileUp(bwt,ax=None,silent =0,
-             sigMax = 20,
-             ):
-    '''bwt: A dataFrame containing the peak regions from a bigWig track
-    sigMax: throw away peaks with average above this maximum
-    sigMax: clip the signal at this maximum 
+# def qc_pileUp(bwt,ax=None,silent =0,
+#              sigMax = 20,
+#              ):
+#     '''bwt: A dataFrame containing the peak regions from a bigWig track
+#     sigMax: throw away peaks with average above this maximum
+#     sigMax: clip the signal at this maximum 
+# '''
+#     if not isinstance(bwt,scount.countMatrix):
+#         bwt = scount.countMatrix(bwt)
+        
+#     if bwt.index.duplicated().any():
+#         bwt =bwt.reset_index(drop=1,inplace=False)
+#     bwt.qc_Avg()
+#     index = bwt.summary.query('M<%d'%sigMax).index
+#     bwtc = bwt.reindex(index)
+#     xs = bwt.columns
+
+#     (M,SD,CV), _ = qc_Avg(bwtc.T,nMax=1E100)
+#     SE = SD/len(M)**0.5
+
+#     if not silent:
+#         if ax is None:
+#             fig,axs= plt.subplots(1,3,figsize=[14,3])    
+#             i = -1
+#             i += 1;ax=axs[i]; plt.sca(ax)
+#         else:
+#             axs = None
+#         plt.plot(M,'b')
+#         plt.plot(M+2*SE, 'b--', alpha=0.5)
+#         plt.plot(M-2*SE, 'b--', alpha=0.5)
+# #         plt.title(pyutil.basename(fname))
+#         plt.grid(1)
+        
+#     return (M, SE), ax
+
+def qc_pileUp(bwTracks,ax=None,errKey = 'SE',labels=None):
+    '''bwTracks is dataFrame with multi-indexed columns (trackname,position), and single-indexed
+    rows (peakName,)
 '''
-    if bwt.index.duplicated().any():
-        bwt =bwt.reset_index(drop=1,inplace=False)
-    bwt.qc_Avg()
-    index = bwt.summary.query('M<%d'%sigMax).index
-    bwtc = bwt.reindex(index)
-    xs = bwt.columns
+    if ax is None:
+        fig,axs = plt.subplots(1,1,figsize=[10,6])
+        ax =axs
+#         fig,ax = plt.subplots(1,1,figsize=[7,7])
+    dfc = scount.countMatrix(bwTracks.T)
+    
+    dfc.qc_Avg()
+    summ = dfc.summary.reset_index()
+    pileUp = summ.pivot_table(columns='bwFile',index='pos',values=['M','SD'],
+                             )
+    cols = summ['bwFile'].drop_duplicates()
+    pileUp = pileUp.reindex(columns=cols,level=1)
+    if labels is not None:
+        pileUp.columns = pileUp.columns.set_levels(labels,level='bwFile')
 
-    (M,SD,CV), _ = qc_Avg(bwtc.T,nMax=1E100)
-    SE = SD/len(M)**0.5
+    pyvis.linePlot4DF(pileUp['M'].T,which='plot',ax=ax)
+    M,SD = pileUp.M,pileUp.SD
+    SE = SD / len(dfc)**0.5
+    if errKey is not None:
+        err= locals()[errKey]
+        ax = pyvis.linePlot4DF(df= M.T - err.T,
+                               y2= M.T + err.T,which='fill_between',alpha=0.5,ax=ax)
+    ax.legend()
+    ax.set_xlabel('relative to peak (bp)')
 
+    return ax
+
+
+# ?import pymisca
+import synotil.CountMatrix as scount
+def qc_lineplots(dfcc, ylab = 'average RPGC',
+                 xlab = 'bp to the start of peak',
+                 L =None):
+    if not isinstance(dfcc, scount.countMatrix):
+        dfcc = scount.countMatrix(dfcc)
+    L = dfcc.param.__dict__.get('n_peak',None) if L is None else L
+    
+    dfcc.heatmap(cname=ylab,vlim=[0.,6.])
+
+    fig,axs = plt.subplots(1,2,figsize=[12,4])
+    ax = axs[0]
+
+    dfcc.plot.line(legend=0,ax=ax)
+    ax.set_ylim(0,None)
+    ax.grid(1)
+    ax.set_ylabel(ylab)
+    ax.set_xlabel(xlab)
+
+    ax = axs[1]
+    dfcc.plot.line(ax=ax)
+
+    plt.suptitle('N=%d'% L )
+    return axs
+
+
+import synotil.dio as sdio
+def qc_narrowPeak(qfile,
+                  cutoff = 0.98,
+                  ax = None,
+                  silent= 1,
+                  keyFile = None,
+                  ofname = None,
+                  cutoff_key = 'per_FC',
+#                   cutoff = {'per_FC':0.98}
+                 ):
+    '''
+    Visualise the fold-change distribution and do cutoff
+'''
+    f=open(qfile)
+    fline = f.readline()
+    f.close()
+    
+    if fline.split('\t')[0] == 'chrom':
+        qres = pyutil.readData( qfile, guess_index=0)
+        pass
+    else:
+        qres = sdio.extract_peak(qfile)
+        
+    qres['per_FC'] = pyutil.dist2ppf(qres.FC)
+    qres['per_score'] = pyutil.dist2ppf(qres.score)
+    
+    dfc = qres.query('%s > %.3f'%(cutoff_key,cutoff))
+    
+    ofname= '%s_chipTarg.tsv'%pyutil.basename(qfile)
+    
+    dfc.reset_index(drop=1).to_csv(ofname,sep='\t',index=None,header=None)
+    print (qres.shape,dfc.shape)
+#     print (dfc.shape)
+    
+    if keyFile is not None:
+        keyDF = pyutil.readData(keyFile)
+        
+        dfcc = dfc.set_index('feature_acc',drop=0)
+        dfcc = dfcc.loc[~dfcc.index.duplicated(),]
+        
+        keyTarg= pd.concat([dfcc[['FC']],keyDF],axis=1,join='inner')
+        
+        pyutil.ipd.display(keyTarg)
+
+    
     if not silent:
         if ax is None:
-            fig,ax0s= plt.subplots(1,3,figsize=[14,3])    
-            i = -1
-            i += 1;ax=axs[i]; plt.sca(ax)
-        else:
-            axs = None
-        plt.plot(M,'b')
-        plt.plot(M+2*SE, 'b--', alpha=0.5)
-        plt.plot(M-2*SE, 'b--', alpha=0.5)
-#         plt.title(pyutil.basename(fname))
-        plt.grid(1)
+            fig,axs = plt.subplots(1,2,figsize=[12,4])
+            ax = axs[0]
+        plt.sca(ax);
+    #     cutoff = 0.98
+        raw_key = cutoff_key.split('_')[-1]
+        ax.plot( qres[cutoff_key], qres[raw_key] ,'x')
+
+        ax.set_xlim(0.5,1.1)
+        ax.grid(1)
+        ax.vlines(cutoff,*ax.get_ylim())
+        ax.set_xlabel('percentile')
+        ax.set_ylabel(raw_key)
+        title = 'All=%d'%len(qres) + ', keep=%d'%len(dfc)
+        ax.set_title(title)
         
-    return (M, SE), ax
+    
+    # dfcc =qc_ sutil.tidyBd(dfc.set_index('feature_acc',drop=0))
+    
+    return ofname,ax
+
+import synotil.dio as sdio;
+def qc_summitDist(peak1,peak2,GSIZE,query=None,query1=None,query2=None,
+                  xlab = None,ylab=None,
+                 CUTOFF=600,
+                  axs=None,
+#                  ax = None,
+                 ):
+    '''plot the distribution of inter-summit distance between files
+'''
+    xbin = np.linspace(2,CUTOFF,50)
+    if axs is None:
+        fig,axs = plt.subplots(1,3,figsize=[16,4])
+#         ax = axs[0]
+    i = -1;
+    
+
+    infiles = [peak1,peak2]
+    
+    if query is not None:
+        query1 = query2 = query
+    if query1 is not None and query2 is not None:
+        querys = [query1,query2]
+        infiles = [
+            pyutil.queryCopy(
+                reader = sdio.extract_peak,
+                infile = infile,
+                query = query,
+                inplace=True,
+            )
+            for query,infile in zip(querys,infiles)
+            ]
+        
+    if xlab is None:
+        xlab = pyutil.basename(peak1)
+    if ylab is None:
+        ylab = pyutil.basename(peak2)
+
+    randFiles = [sdio.bed_randomise(fname,GSIZE=GSIZE)
+                for fname in infiles]
+    peak1,peak2 = infiles
+
+    i += 1; ax = axs[i];plt.sca(ax)
+    plotter = ax.hist
+    # plotter = pyvis.histoLine 
+    common ={'bins':xbin,
+            'density':0,
+            'alpha':1.0,
+             'histtype':'step',
+            }
+
+    df = df__inter = sdio.summitDist(peak1,peak2,GSIZE=GSIZE,CUTOFF=CUTOFF)
+    lab = '%s__%s' % (xlab,ylab)
+    lab += ',N=%d'%len(df)
+    plotter(df.distance,label=lab,**common)
+    
+    
+    
+    df = sdio.summitDist(peak1,peak1,GSIZE=GSIZE,CUTOFF=CUTOFF)
+    lab = '%s__%s' % (xlab,xlab)
+    lab += ',N=%d'%len(df)
+    plotter(df.distance,label=lab,**common)
+    
+    
+    
+    df = sdio.summitDist(peak2,peak2,GSIZE=GSIZE,CUTOFF=CUTOFF)
+    lab = '%s__%s' % (ylab,ylab)
+    lab += ',N=%d'%len(df)
+    plotter(df.distance,label=lab,**common)
+
+    df = sdio.summitDist(peak1,randFiles[-1],GSIZE=GSIZE,CUTOFF=CUTOFF)
+    lab = '%s__randomise-%s' % (xlab,ylab)
+    lab += ',N=%d'%len(df)
+    plotter(df.distance,label=lab,**common)
+
+    df = sdio.summitDist(peak2,randFiles[0],GSIZE=GSIZE,CUTOFF=CUTOFF)
+    lab = 'randomise-%s__%s' % (xlab,ylab)
+    lab += ',N=%d'%len(df)
+    plotter(df.distance,label=lab,**common)
+    
+    title = 'query1={query1},query2={query2}'.format(**locals())
+    ax.set_title(title)
+    ax.set_xlabel('inter-summit distance (bp)')
+    ax.legend()
+    ax.grid(1)
+    
+    df = df_inter = df__inter.query('distance>1')
+    L1and2 = len(df.acc.unique())
+    L1not2 = pyutil.lineCount(peak1) - L1and2
+
+    L2and1 = len(df.feat_acc.unique())
+    L2not1 = pyutil.lineCount(peak2)  - L2and1
+
+    Lall  = (L1and2 + L2and1)//2
+    i += 1; ax = axs[i];plt.sca(ax)
+    indVenn = pyvis.qc_index(subsets=(L1not2,L2not1,Lall),silent=0,xlab=xlab,ylab=ylab,ax=ax)[0]
+    return df_inter,indVenn, axs
+
+

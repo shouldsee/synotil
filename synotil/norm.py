@@ -25,7 +25,8 @@ def stdNorm(X):
         X = df.setDF(X)
         X.param['normF'] = 'stdNorm'
     return X
-def meanNorm(X):
+
+def meanNorm(X,axis=1):
     deco = 0
     if isinstance(X,scount.countMatrix):
         deco =1
@@ -37,16 +38,77 @@ def meanNorm(X):
     else:
         if isinstance(X, pd.DataFrame):
             X = X.values
+            
         assert isinstance(X,np.ndarray)
-        X = (X-X.mean(axis=1,keepdims=1))
+        X = (X-X.mean(axis=axis,keepdims=1))
         
     param = getattr(X,'param',{})    
     param['normF'] = 'meanNorm'
 #     X.param = param
     
     if deco:
+#         cols = X.columns
         X = df.setDF(X)
+#         X.columns = cols
         X.param['normF'] = 'meanNorm'        
+    return X
+
+def sumNorm(X,axis=1):
+    deco = 0
+    if isinstance(X,scount.countMatrix):
+        deco =1
+        df = X 
+        
+    if isinstance(X,pd.Series):
+        X = X.values
+        SUM = X.sum()
+        if SUM != 0:
+            X = (X / SUM)
+    else:
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+            
+        assert isinstance(X,np.ndarray)
+        SUM =X.sum(axis=axis,keepdims=1)
+        SUM[SUM==0] = 1.
+        X = (X / SUM)
+        
+    param = getattr(X,'param',{})    
+    param['normF'] = 'sumNorm'
+#     X.param = param
+    
+    if deco:
+#         cols = X.columns
+        X = df.setDF(X)
+#         X.columns = cols
+        X.param['normF'] = 'sumNorm'        
+    return X
+
+def diffNorm(X,axis=1):
+    deco = 0
+    if isinstance(X,scount.countMatrix):
+        deco =1
+        df = X 
+        
+    if isinstance(X,pd.Series):        
+        X = X.values
+        X = np.diff(X,axis=0)
+    else:
+        if isinstance(X, pd.DataFrame):
+            X = X.values            
+        assert isinstance(X,np.ndarray)
+        X = np.diff(X,axis=axis)
+#         X = (X-X.mean(axis=axis,keepdims=1))
+        
+    param = getattr(X,'param',{})    
+    param['normF'] = 'diffNorm'
+#     X.param = param
+    
+    if deco:
+#         cols = X.columns
+        X = df.setDF(X)
+#         X.columns = cols
+        X.param['normF'] = 'diffNorm'        
     return X
 
 def meanNormProj(X):
