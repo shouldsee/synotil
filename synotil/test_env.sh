@@ -1,5 +1,0 @@
-echo "
-ORIGIN=$ORIGIN
-ENVDIR=$ENVDIR
-"
-

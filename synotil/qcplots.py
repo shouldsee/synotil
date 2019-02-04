@@ -334,13 +334,13 @@ def qc_meanVar( C, clu, axs=None,xlim=None,ylim=None,silent=0):
         
 #     return (M, SE), ax
 
-def qc_pileUp(bwTracks,ax=None,errKey = 'SE',labels=None):
+def qc_pileUp(bwTracks,ax=None,errKey = 'SE',labels=None, axLeg = None,):
     '''bwTracks is dataFrame with multi-indexed columns (trackname,position), and single-indexed
     rows (peakName,)
 '''
     if ax is None:
         fig,axs = plt.subplots(1,1,figsize=[10,6])
-        ax =axs
+        ax = axs
 #         fig,ax = plt.subplots(1,1,figsize=[7,7])
     dfc = scount.countMatrix(bwTracks.T)
     
@@ -352,18 +352,25 @@ def qc_pileUp(bwTracks,ax=None,errKey = 'SE',labels=None):
     pileUp = pileUp.reindex(columns=cols,level=1)
     if labels is not None:
         pileUp.columns = pileUp.columns.set_levels(labels,level='bwFile')
-
-    pyvis.linePlot4DF(pileUp['M'].T,which='plot',ax=ax)
+        
+    ### actual plotting
+    lines = pyvis.linePlot4DF(pileUp['M'].T,which='plot',ax=ax)
+    
     M,SD = pileUp.M,pileUp.SD
     SE = SD / len(dfc)**0.5
     if errKey is not None:
         err= locals()[errKey]
-        ax = pyvis.linePlot4DF(df= M.T - err.T,
+        linesErr = pyvis.linePlot4DF(df= M.T - err.T,
                                y2= M.T + err.T,which='fill_between',alpha=0.5,ax=ax)
-    ax.legend()
+    if axLeg is not None:
+        legs = pyvis.line__getLegends([x[0] for x in lines])
+        axLeg.legend(*legs)
+        pyvis.hide_Axes(axLeg)
+#     ax.legend()
     ax.set_xlabel('relative to peak (bp)')
 
-    return ax
+    return lines
+
 
 
 # ?import pymisca
@@ -461,15 +468,17 @@ def qc_narrowPeak(qfile,
     return ofname,ax
 
 import synotil.dio as sdio;
-def qc_summitDist(peak1,peak2,GSIZE,query=None,query1=None,query2=None,
+def qc_summitDist(peak1,peak2,GSIZE,
+                  query=None,query1=None,query2=None,
                   xlab = None,ylab=None,
                  CUTOFF=600,
                   axs=None,
+                  density= 1,
 #                  ax = None,
                  ):
     '''plot the distribution of inter-summit distance between files
 '''
-    xbin = np.linspace(2,CUTOFF,50)
+    xbin = np.linspace(2, CUTOFF,50)
     if axs is None:
         fig,axs = plt.subplots(1,3,figsize=[16,4])
 #         ax = axs[0]
@@ -505,7 +514,7 @@ def qc_summitDist(peak1,peak2,GSIZE,query=None,query1=None,query2=None,
     plotter = ax.hist
     # plotter = pyvis.histoLine 
     common ={'bins':xbin,
-            'density':0,
+            'density':density,
             'alpha':1.0,
              'histtype':'step',
             }

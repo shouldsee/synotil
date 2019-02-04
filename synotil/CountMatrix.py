@@ -106,8 +106,8 @@ def wrapDFMethod( f, instance, args, kwargs):
 
 # class countMatrix(pyutil.pd.DataFrame):
 
-
-
+import pymisca.bio as pybio
+import StringIO
 
 class countMatrix(pd.DataFrame):
     ''' A decorated pandas.DataFrame class that
@@ -127,6 +127,7 @@ knows how to plot itself
                  model = None,
                  colMeta = None,
                  rowMeta = None,
+                 height = 1.,
                  **kwargs):
         df = pyutil.init_DF( C=C,rowName=rowName,colName = colName)  
 #         print self.__class__,countMatrix, isinstance(self,countMatrix,)
@@ -137,13 +138,29 @@ knows how to plot itself
         self.vlim = vlim
         self.fname = fname
         self.model = model
-        self.colMeta_ = colMeta
+        self.height = height 
+#         self.colMeta_ = colMeta
+        self.set__colMeta(colMeta)
         self.rowMeta_ = rowMeta
         self.param = {'normF':'identityNorm',
                      }        
         self.set_config( test=None,**kwargs)
         self.test= None
-        
+    def set__colMeta(self,colMeta,castF = unicode):
+        if colMeta is not None:
+            colMeta = colMeta.reindex(self.columns).astype(castF)
+        self.colMeta_ = colMeta
+        return 
+    
+    def set__vlim(self,vlim=None):
+        if vlim is None:
+    #         vlim=[-3,3]
+            vlim = pyutil.span(self)
+            if vlim[0] < 0:
+                vlim = - np.mean(vlim) + vlim
+        self.vlim = vlim
+        return     
+    
     @property
     def colMeta(self):
         return self.colMeta_
@@ -166,10 +183,8 @@ knows how to plot itself
     
     @property
     def name(self):
-        return str(self.name_).split('/')[-1]
-    
-# 
-
+        return str(self.name_)
+#     .split('/')[-1]
     
     def name4param(self,keys=None):
         d = self.param
@@ -212,14 +227,13 @@ knows how to plot itself
         s = '<countMatrix: name=%s>'% self.name
         return s
     
-    def setDF(self,df,update=0):
+    def setDF(self,df,update=1):
 #         config = self.get_config()
         configDict= self.__getstate__()
         [configDict.pop(k) for k in list(configDict) if k.startswith('_')]
         
         if isinstance(df,pd.Series):
             df = df.values
-            
         if isinstance(df, pyutil.np.ndarray):
             
             if update and (df.shape == self.shape):
@@ -252,7 +266,9 @@ knows how to plot itself
             df = df.to_frame()
         if index_col is not None:
             assert index_col in df
-            df.set_index(index_col,drop=0,inplace=1)
+            df.set_index(index_col,drop=0,inplace=True
+                        
+                        )
 #         print 3,type(df)
         ins = cls(C=df.values,
                  colName=df.columns,
@@ -301,7 +317,7 @@ knows how to plot itself
             return condName
         
     def dropAll(self):
-        self.drop(self.columns, 1, inplace=1)
+        self.drop(self.columns, 1, inplace=True)
         return self
     def toGeneList(self):
         self.dropAll()
@@ -310,8 +326,10 @@ knows how to plot itself
     def heatmap(self,C=None,vlim=None,
                 cname = 'test',
                 xlab='Condition',
+                ylab = '',
                 ytick = None,xtick = None,
                 reorder=0,ax=None,transpose=1,
+                tickMax=100,
                 short = 1,
                 **kwargs):
         vlim = self.vlim if vlim is None else vlim
@@ -323,17 +341,23 @@ knows how to plot itself
             
         if ytick is None:
             ytick = self.index if len(self) < 500 else None
+            
+        if transpose:
+            xtick,ytick = ytick,xtick
+            xlab,ylab = ylab,xlab
         
 #         im = pyvis.heatmap(C[cidx][sidx],
         im = pyvis.heatmap(C,
 #                            ylab=(None if not i else 'Gene'),
 #                            ytick = (None if not i else gCur['Gene Name']),
                            xlab=xlab,
+                           ylab = ylab,
                            transpose=transpose,
                            cname = cname,
                            vlim = vlim,
                            xtick=xtick,
                            ytick =ytick,
+                           tickMax = tickMax,
                            ax=ax,**kwargs
                           ) 
         
@@ -343,8 +367,27 @@ knows how to plot itself
 #             print '[DEV] addBox() is disabled fodr now'
             pass
         return im
+    ###### [TBC] pd_extra
+    def to_bed(self,path_or_buf=None,index=0,header=None,sep='\t',
+               escapechar='\\',doublequote=False,
+               **kwargs):
+        return self.to_csv(path_or_buf=path_or_buf,
+                          index=index,
+                           escapechar=escapechar,
+                           doublequote=doublequote,
+                          header=header,sep=sep,**kwargs).replace(escapechar,'')
+    def rename_index(self,ind):
+        return self.rename(index={x: ind for x in self.index})    
     
-    
+    def to_feats(self,**kwargs):
+        seqrecs = pybio.read_gtf(StringIO.StringIO(self.to_bed(**kwargs)))
+        if len(seqrecs)==0:
+            return seqrecs
+        else:
+            assert len(seqrecs)==1,'more than 1 chromosomes (seqRecord) found'
+            feats = seqrecs[0].features
+#             feats = [pybio.gene2transcript(x) for x in seqrecs[0].features]
+            return feats
 
     def copy(self,deep = True):
 # #         df = super(countMatrix, self).copy(deep=deep)
@@ -357,12 +400,25 @@ knows how to plot itself
     '''
         import util as sutil
         (M,SD,CV), _ = sutil.qc_Avg( self,silent=1)
+        M = np.nanmean(self.values,axis=1)
+        SD = np.nanstd(self.values,axis=1)
+        CV = SD/M
+#         SD = np.nanmedian(self.values,axis=1)
+        MAX=np.nanmax(self.values, axis=1)
+        MIN=np.nanmin(self.values, axis=1)
+        effSize = np.sum( ~np.isnan(self.values), axis = 1)
+        SE = SD/effSize ** 0.5
         # df = pd.concat([M,SD,CV],axis=1)
         MSQ = M**2 + SD**2
         df = pd.DataFrame({'M':M,
                            'SD':SD,
                            'MSQ':MSQ,
-                           'CV':CV})
+                           'MAX':MAX,
+                           'MIN':MIN,
+                           'CV':CV,
+                           'SE':SE,
+                          'effSize':effSize,
+                          })
 #         df = pd.DataFrame({'M':M.values,
 #                            'SD':SD.values, 
 #                            'CV':CV.values})
@@ -371,6 +427,8 @@ knows how to plot itself
         df['per_M'] = pyutil.dist2ppf(df.M)
         df['per_MSQ'] = pyutil.dist2ppf(df.MSQ)
         df['per_CV'] = pyutil.dist2ppf(df.CV)
+        df['per_MAX'] = pyutil.dist2ppf(df.MAX)
+        df['per_MIN'] = pyutil.dist2ppf(df.MIN)
         df['per'] = df['per_SD']
 
         self.summary = df
@@ -428,7 +486,7 @@ knows how to plot itself
         '''Apply a Regex capturer to sanitise/standardise the index
 '''
         res = [x[0] for x in self.index.map(ptn.findall)]
-        res = self.set_index([res],inplace=1)
+        res = self.set_index([res],inplace=True)
         return self
     def flatSubset(self, keep,negate = 0, which = 'columns'):
         vals = getattr(self,which)
@@ -453,6 +511,7 @@ countMatrix.mergeByIndex = wrapDFMethod(pyutil.mergeByIndex)
 countMatrix.filterMatch = wrapDFMethod(pyutil.filterMatch)
 countMatrix.to_tsv = pyutil.to_tsv
 countMatrix.melt =  pyutil.melt
+countMatrix.makeContrastWithMeta =  pyutil.df__makeContrastWithMeta
 
 
 
