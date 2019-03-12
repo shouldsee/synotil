@@ -7,7 +7,7 @@ import pymisca.util as pyutil; reload(pyutil)
 plt = pyvis.plt
 # import matplotlib.pyplot as plt
 import textwrap
-import xlsxwriter
+# import xlsxwriter
 import operator
 # reload(pyutil)
 # pyutil.cluMap = pyutil.mpl.colors.ListedColormap(['r', 'g', 'b', 'y', 'w', 'k', 'm'])
@@ -617,9 +617,9 @@ order: A DataFrame which will be sorted to obatin the ordering
         DIR = self.DIR if DIR is None else DIR
         pyutil.shellexec('mkdir -p %s'%DIR)
         return DIR
-    def emptyExcel(self,fname ='main.xlsx'):
-        ExcelFile= pd.ExcelWriter('%s/%s'%(self.DIR,fname), engine='xlsxwriter')
-        return ExcelFile
+#     def emptyExcel(self,fname ='main.xlsx'):
+#         ExcelFile= pd.ExcelWriter('%s/%s'%(self.DIR,fname), engine='xlsxwriter')
+#         return ExcelFile
     def dump(self, ExcelFile = 'main.xlsx', sheetName = 'test',figName = None,
              saveClose = 1,
             ):
