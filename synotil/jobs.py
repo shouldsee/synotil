@@ -12,8 +12,11 @@ import synotil.CountMatrix as scount
 import synotil.PanelPlot as spanel
 import synotil.qcplots as sqc
 import synotil.dio as sdio
+job__nearAUG = sdio.job__nearAUG
+
 import synotil.norm as snorm
 sjob= pyutil.sys.modules[__name__]
+
 
 def figs__peakBW(peakFile,
                  bwFiles,
@@ -28,6 +31,7 @@ def figs__peakBW(peakFile,
                  squareSize=(0.2,0.01),
                  detailByChip = None,
                  detailByGene = 0, ### runtime linear in number of genes
+                 name = None,
                  **kwargs):
     ### legacy
     if outIndexFunc is not None:
@@ -48,6 +52,9 @@ def figs__peakBW(peakFile,
             detailByChip = 1
         else:
             detailByChip = 0
+            
+    if name is None:
+        name = pyutil.getBname(peakFile)
         
     poss = bwTracks.columns.levels[1]
     innerPos = poss[abs(poss) <= innerRadius]
@@ -70,12 +77,12 @@ def figs__peakBW(peakFile,
 
     ax =axs[1]
     sqc.qc_pileUp(bwTracks,ax=ax,axLeg=axs[2])
-    figs['pileUp']  = plt.gcf()
+    figs['pileUp-%s' % name ]  = plt.gcf()
     ax.set_ylim(ylim)
     
     #########
     bwAvg.heatmap(figsize=[20,10])
-    figs['avgHeatmap'] =plt.gcf()
+    figs['avgHeatmap-%s' % name] =plt.gcf()
     
     pos = bwTracks.columns.get_level_values('pos')
     cname = 'binding'
@@ -99,7 +106,7 @@ def figs__peakBW(peakFile,
 #                           transpose=1,
 #                           squareSize=squareSize,
 #                           xtick = bwTracks.index,ylab = key)
-            figs['detailByChip/%s'%key] = plt.gcf()
+            figs['detailByChip-%s/%s'%(name,key)] = plt.gcf()
     
     ########
     if detailByGene:
@@ -119,7 +126,7 @@ def figs__peakBW(peakFile,
             xticks = pos[ax.get_xticks().astype(int)[:-1]]
             ax.set_xticklabels(xticks,)
             
-            figs['detailByGene/%s'%key] = plt.gcf()
+            figs['detailByGene-%s/%s'%(name,key)] = plt.gcf()
             
 
 
@@ -147,6 +154,8 @@ def job__render__panelPlot(
     figsize = None,
     panel_kw = panel_kw_dft,
     how = 'left',
+    debug=0,
+    extra = {},
     **kwargs
 ):
     if figsize is not None:
@@ -177,6 +186,7 @@ def job__render__panelPlot(
         
     if isinstance(index,basestring):
         alias += pyutil.sanitise_query(index)
+        locals().update(extra)
         index = eval(index)
 
     cluTrack = spanel.fixCluster(clu)
@@ -186,11 +196,15 @@ def job__render__panelPlot(
     tracks = pyext.list__realise(tracks, locals())
     ##### Output heatmap
     pp = spanel.panelPlot(tracks,**panel_kw)
-    pp.compile(order=order,
-               how=how,
+    pp.compile(how=how,
                index=index,
                **kwargs
               )
+    pp.compile(order=order)
+#     if debug:
+#         return pp
+    if debug:
+        return pp
     fig = pp.render();    
     return (alias,fig)
 
@@ -369,34 +383,48 @@ def job__combinePeak(bwCurr,
 
 def job__chipTargPaired(
     bwCurr  = None,
+    bwMeta = None, control= None, treatment = None,
     xlab = None, ylab = None,
+    name = None,
 #     bwMeta,
     NCORE = 2,
     params__peakBW = None,
     CUTOFF_FC = 3.0,
     CUTOFF_CHIPDIFF = 0.7,
+    innerRadius = 100,
 ):
     figs = pyutil.collections.OrderedDict()
+
+    
+    if control is not None and treatment is not None:
+        xlab,ylab = control,treatment
+    if xlab is None or ylab is None:
+        xlab,ylab = bwCurr.index
+    elif bwCurr is None:
+        bwCurr = bwMeta.reindex([xlab,ylab])
+        
     if params__peakBW is None:
         
         params__peakBW = dict(
             outerRadius=500,
-            innerRadius=100,
+            innerRadius=innerRadius,
             NCORE = NCORE,
             outIndex=bwCurr.header,
         #     detailByCHIP = 0,
         )
+    params__peakBW['innerRadius'] = innerRadius        
         
-    if xlab is None or ylab is None:
-        xlab,ylab = bwCurr.index
+    if name is None:
+        name = '{xlab}-{ylab}'.format(**locals())
 #     bwCurr = bwMeta
 #     bwCurr = bwCurr.loc[[xlab,ylab]]
 
-    bwCurr.npkFile
+#     bwCurr.npkFile
 
     dfs = map(sdio.extract_peak, bwCurr.npkFile,)
-
-    ax = plt.gca()
+    
+    fig,ax = plt.subplots(1,1,figsize=[7,7])
+#     ax = plt.gca()
     for df in dfs:
         df['per_FC']  = pyutil.dist2ppf(df.FC)
         df.plot.scatter('per_FC','FC',ax=ax)
@@ -419,6 +447,7 @@ def job__chipTargPaired(
     res = sjob.figs__peakBW(
         peakFile = peakFile,
         bwFiles = bwCurr.RPKMFile,
+        name = name,
         **params__peakBW
     )
     figs.update(res[0])
@@ -437,7 +466,7 @@ def job__chipTargPaired(
     clu['clu']= clu.eval('index in @peakIndex')
     
     pyvis.qc_2var(xs,ys,clu=clu.clu,xlab=xlab,ylab=ylab)
-    figs['scatterPlot']= plt.gcf()
+    figs['scatterPlot__%s' % name ]= plt.gcf()
     cluFile = ofname = qsans+'.csv'
     clu.to_csv(ofname)
     print (ofname,pyutil.lineCount(ofname))
@@ -446,13 +475,21 @@ def job__chipTargPaired(
     peakFile = pyutil.to_tsv(
         sdio.extract_peak(peakFile).set_index('acc',drop=0).reindex(peakIndex),
                            ofname)
+    pyutil.shellexec('mkdir -p output/')
+    pyutil.file__link(ofname,'output/%s.bed' % name,force=True)
+    
 #     peakFile = pyutil.queryCopy(peakFile,
 #                                 query='acc in @peakIndex',
 #                                 reader=sdio.extract_peak, 
 #                                 peakIndex=peakIndex,
 #                                )
 #     peakFile =  '{peakFile}-{qsans}.bed'
+#     pyutil.fileDict__main(ofname='FILE.json',
+#                          **pyutil.dictFilter(locals(),
+#                                              keys=['cluFile','peakFile',
+#                                             'peakFileOrig']
+#                                             ))
     
     pyutil.fileDict__save(d=locals(), keys=['cluFile','peakFile',
-                                            'peakFileOrig'],fname='files.json')
+                                            'peakFileOrig'],fname='FILE.json')
     return figs,clu

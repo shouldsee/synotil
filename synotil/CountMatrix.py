@@ -172,8 +172,10 @@ knows how to plot itself
         '''Decorate the data frame to be ready for plotting
     '''
         if colLabel is None and rowLabel is None:
-            self.columns = self.colMeta.index
-            self.index   = self.rowMeta.index
+            if self.colMeta is not None:
+                self.columns = self.colMeta.index
+            if self.rowMeta is not None:
+                self.index   = self.rowMeta.index
 #             raise Exception('must supply one argument')
         if colLabel is not None:
             self.columns = self.colMeta[colLabel]             

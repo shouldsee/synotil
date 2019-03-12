@@ -1,6 +1,6 @@
 
 #### Data I/O
-import CountMatrix as scount
+import CountMatrix as scountjo
 import pymisca.util as pyutil
 import pyBigWig as pybw
 pd = pyutil.pd; np = pyutil.np; 
@@ -473,10 +473,10 @@ def job__nearAUG(peakFile = None,featFile =None,
     JOB='nearAUG'
     if peakSummit is None:
         assert peakFile is not None
-        peakSummit = sdio.bed__summit(peakFile,)
+        peakSummit = sdio.bed__summit(peakFile,GSIZE=GSIZE,inplace=0)
     if featSummit is None:
         assert featFile is not None
-        featSummit = sdio.bed__leftSummit(featFile,inplace=0)
+        featSummit = sdio.bed__leftSummit(featFile,GSIZE=GSIZE,inplace=0)
 
     if peakWid is None:
         peakWid= sdio.bed__guessWidth(peakFile)//2 
@@ -515,6 +515,9 @@ def gene2peak(pgf,query,**kwargs):
     res = pgf.merge(query,left_on='feat_acc',right_index=True,**kwargs)
     return res
 
+def df__sanitise__Ath(df):
+    df.index = df.index.str.extract(".*(AT\dG\d{5}).*",expand=False)
+    return df
 ####
 
 def getChrom(fname):
@@ -579,8 +582,8 @@ def rawFile__validateChunk(dfc,):
         dfc['ext'] = dfc['ext'].map(lambda x:'.%s'%x)
     dfc['fnameCombined'] = pyutil.df__paste0(dfc,
                                               idKeys + ['ext'],
-                                              headerFmt='_',
-#                                               sep='_',
+#                                               headerFmt='_',
+                                              sep='_',
                                               ).tolist()
     dfc['fnameCombinedSize'] = 0
     return dfc

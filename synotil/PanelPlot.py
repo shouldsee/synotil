@@ -48,7 +48,8 @@ def fixCluster(ele):
         shuffle = 1
     cmap = pyvis.discrete_cmap(N,'Spectral',shuffle = shuffle,seed=0)
     cmap.set_bad('black',1.)
-    C = ele.values; 
+    
+    C = ele.values - val.min(); 
 #                     print C.shape
     C = np.ma.array ( C, mask=np.isnan(C))
 #                     print C.shape
@@ -509,10 +510,9 @@ index: Specify the data to be included. Inferred from joinIndex() if is None
         if self.orig is None:
             self.orig = self.copy()
 #         self.joinIndex(how=how) if how is not None else None
-        if index is None:
-            self.index = self.index if self.index is not None else self.joinIndex(how=how, )
-        else:
-            self.index = index            
+        self.index = self.index if self.index is not None else self.joinIndex(how=how, )
+        if index is not None:
+            self.index = pd.Index(self.index) & index
         self.orderBy(order=order) if order is not None else None        
             
         looks = [guessLook(ele) if not ele.look else ele.look for ele in self ]

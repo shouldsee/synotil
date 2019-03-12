@@ -1,13 +1,17 @@
 
 # coding: utf-8
 
-# ####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
-# #### Written for BrachyPhoton at SLCU
+# In[3]:
 
-# ####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
-# #### Written for BrachyPhoton at SLCU
 
-# In[99]:
+#!/usr/bin/env python
+
+
+####### Utilities for Visualising RNASeq. Author: Feng Geng (fg368@cam.ac.uk)
+#### Written for BrachyPhoton at SLCU
+
+
+# In[2]:
 
 
 if __name__=='__main__':
@@ -15,21 +19,10 @@ if __name__=='__main__':
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[34]:
-
-
-def to_tsv(df,fname,header= None,index=None, **kwargs):
-#     df =df.reset_index()[[0,1,2,'index',4,5,6]]
-    df.to_csv(fname,sep='\t',header= header, index= index, **kwargs)
-    return fname
-
-
 # In[2]:
 
 
-INDEX = '/media/pw_synology3/BrachyPhoton/raw/index'
-OUTDIR = '/media/pw_synology3/BrachyPhoton/Mapped_data'
-# ! head {INDEX}
+
 
 import os,re,sys
 import pandas as pd
@@ -46,6 +39,12 @@ import sys
 sutil = modCurr = sys.modules[__name__]
 
 
+def to_tsv(df,fname,header= None,index=None, **kwargs):
+#     df =df.reset_index()[[0,1,2,'index',4,5,6]]
+    df.to_csv(fname,sep='\t',header= header, index= index, **kwargs)
+    return fname
+
+
 
 def readLines(fname):
     with open(fname,'r') as f:
@@ -53,13 +52,7 @@ def readLines(fname):
     return lines
 
 
-try:
-    INDIRs = [os.path.join(OUTDIR,l) for l in readLines(INDEX)]
 
-    ### remove the blacklisted samples
-    INDIRs = [ i for i in INDIRs if not bool(re.search("169R_12", i))]
-except Exception as e:
-    print '[FAIL] to process index file:%s, due to %s'%(INDEX,e)
 
 
 def discrete_cmap(N, base_cmap=None):
@@ -802,7 +795,7 @@ if __name__=='__main__':
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[1]:
+# In[3]:
 
 
 def normANDproba(mdlDF,X,normF=None):

@@ -13,6 +13,7 @@ runID_RNA = Rcomp('.*%s).*'%(ridL.replace('C',''),))
 
 srr = Rcomp('(?P<lead>SRR.*)_(?P<read>[012]).(?P<ext>.+)')
 baseSpace = Rcomp('(?P<lead>.*)_L(?P<chunk>\d+)_R(?P<read>[012])_(?P<trail>\d{1,4})\.(?P<ext>.+)')
+baseSpaceSimple = Rcomp('(?P<lead>.*)_R(?P<read>[012])_(?P<trail>\d{1,4})\.(?P<ext>.+)')
 sampleID = Rcomp('[_\/](S\d{1,3}|SRR\d{7,8})[_/\-\.]')
 
 BdAcc = Rcomp('(Bradi[\da-zA-Z]+)')
