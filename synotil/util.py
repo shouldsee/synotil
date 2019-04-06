@@ -11,7 +11,7 @@
 #### Written for BrachyPhoton at SLCU
 
 
-# In[2]:
+# In[1]:
 
 
 if __name__=='__main__':
@@ -33,6 +33,8 @@ import pymisca.util as pyutil
 np = pyutil.np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+
+import collections
 
 
 import sys
@@ -969,7 +971,7 @@ if __name__=='__main__':
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[116]:
+# In[ ]:
 
 
 def qc_Sort(df=None,fname=None,cname = 'test',vlim = [-2,2] , title = None,
@@ -978,6 +980,7 @@ def qc_Sort(df=None,fname=None,cname = 'test',vlim = [-2,2] , title = None,
             figsize2=[14,6],
             nMax = 5000,
             **heatargs):
+    figs = collections.OrderedDict()
     vmin, vmax = vlim
     if df is None:
         df = pyutil.readData(fname)
@@ -987,12 +990,15 @@ def qc_Sort(df=None,fname=None,cname = 'test',vlim = [-2,2] , title = None,
         {'vmin':vmin,
          'vmax':vmax,
          'cname':cname,
+         'vlim':vlim,
         }    )
     if isinstance(df, pd.DataFrame):
         C = df.values
     else:
         C = df
     (M,V,CV),axsLst = qcAvg(C,silent=0,xlim=xlim,ylim = ylim,nMax=nMax)
+    figs['qcAvg'] = plt.gcf()
+    
     plt.suptitle(title)
     inter = -len(C)//1000
     
@@ -1008,7 +1014,9 @@ def qc_Sort(df=None,fname=None,cname = 'test',vlim = [-2,2] , title = None,
                  main='sorted by Average',ax=axs[2],**heatargs)
     
     axsLst = np.hstack([axsLst,axs])
-    return (M,V,CV),axsLst
+    figs['qcSort'] = plt.gcf()
+    
+    return (M,V,CV),figs
 
 
 def qc_minfo(resA=None,resB=None,

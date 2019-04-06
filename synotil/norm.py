@@ -5,20 +5,25 @@ import sklearn.decomposition as skdecomp
 pd = pyutil.pd
 import CountMatrix as scount
 # import util as util
+import sys
+import pymisca.ext
+snorm = sys.modules[__name__]
 
 
-def stdNorm(X):
+def stdNorm(X,meanNorm=0,
+            normF = pyutil.l2norm):
     deco = 0
-    if isinstance(X,scount.countMatrix):
+    if isinstance(X, scount.countMatrix):
         deco =1
         df = X 
-        
-    X = meanNorm(X)
+    if meanNorm:
+        X = snorm.meanNorm(X)
     if isinstance(X, pd.DataFrame):
         X = X.values
     X = X.copy()
     assert isinstance(X,np.ndarray)
-    STD = np.std(X,axis=1,keepdims=1); pos = np.squeeze(STD>0);
+    
+    STD = normF(X,axis=1,keepdims=1); pos = np.squeeze(STD>0);
     X[pos] = X[pos]/STD[pos]
 
     if deco:
@@ -73,10 +78,6 @@ def sumNorm(X,axis=1):
         SUM[SUM==0] = 1.
         X = (X / SUM)
         
-    param = getattr(X,'param',{})    
-    param['normF'] = 'sumNorm'
-#     X.param = param
-    
     if deco:
 #         cols = X.columns
         X = df.setDF(X)

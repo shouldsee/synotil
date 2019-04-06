@@ -7,11 +7,28 @@ import pymisca.util as pyutil; reload(pyutil)
 plt = pyvis.plt
 # import matplotlib.pyplot as plt
 import textwrap
+import warnings
 # import xlsxwriter
 import operator
+
+
+import biograpy
+import Bio.SeqFeature
 # reload(pyutil)
 # pyutil.cluMap = pyutil.mpl.colors.ListedColormap(['r', 'g', 'b', 'y', 'w', 'k', 'm'])
 
+def seqFeat2plotFeat(feat):
+    '''Default transformation from seqFeature to biograpy.features
+'''
+    
+    plotFeat = biograpy.features.GeneSeqFeature(
+        feature= feat,
+        arrowHeadLengthRelative=200,)
+    plotFeat.Y = (feat.strand -0.5)/2.
+#     -0.25
+    plotFeat.height=0.5
+#     plotFeat.cm_value = 1.
+    return plotFeat
 
 def guessLook(obj):
     '''Guess how DataFrame should be plotted from its shape
@@ -35,12 +52,17 @@ def guessLook(obj):
     obj.look = look
     return look
 import copy
-def fixCluster(ele):
+def fixCluster(ele,**kwargs):
     ''' Fix a integer-type track into a color track
 '''
-    if not isinstance(ele,scount.countMatrix):
-        ele = scount.countMatrix(ele)
-    val = ele.fillna(0).values
+    if isinstance(ele,pd.DataFrame):
+        ele = ele[ele.columns[0]]
+#     if ele.dtype.is_dtype('category'):
+    if str(ele.dtype) == 'category':
+        val = np.nan_to_num(ele.cat.codes) 
+    else:
+        val = np.nan_to_num(ele.values)
+#         ele.fillna(0).values
     N = val.max() - val.min() + 1 
     if N==2:
         shuffle = 0
@@ -49,7 +71,7 @@ def fixCluster(ele):
     cmap = pyvis.discrete_cmap(N,'Spectral',shuffle = shuffle,seed=0)
     cmap.set_bad('black',1.)
     
-    C = ele.values - val.min(); 
+    C = val - val.min(); 
 #                     print C.shape
     C = np.ma.array ( C, mask=np.isnan(C))
 #                     print C.shape
@@ -57,10 +79,23 @@ def fixCluster(ele):
 #     print cmat.shape
 #     ele  =pd.DataFrame(cmat).set_index( ele.index)
 #     ele.look = 'patch'
+    if not isinstance(ele,scount.countMatrix):
+        ele = scount.countMatrix(ele,
+                                 **kwargs
+                                )
+
     elenew = ele.setDF(pd.DataFrame(cmat).set_index( ele.index) )
     elenew['clu'] = ele.values; ele =elenew
-    ele.cmap = cmap
-    ele.look = 'patch'
+#     ele.__dict__.update(kwargs)
+#     ele.cmap = cmap
+#     ele.look = 'patch'
+    ele.columns  = [unicode(ele.name)] + list(ele.columns[1:])
+    ele = scount.countMatrix(ele,
+                             cmap = cmap,
+                             look='patch',
+                                 **kwargs
+                                )
+#     ele = ele.rename(columns={0:unicode(ele.name)},)
     return ele
 
 # from matplotlib.ticker import NullFormatter
@@ -104,6 +139,7 @@ class panelPlot(list):
                  tickMax=100,
                  header_rotation = 'horizontal',
                  showGrid=1,
+                 indexMapper =  None,
                  *args,**kwargs):
         first = list(lst[0])
         if isinstance(first[0],str):
@@ -123,6 +159,7 @@ class panelPlot(list):
         self._compiled = _compiled
         self.orig = orig
         self.index = index
+        self.indexMapper = indexMapper
         self.debug = debug
         self.geneName = geneName 
         self.DIR = '.'
@@ -158,12 +195,14 @@ class panelPlot(list):
     
     def _render(self, obj, axs= None, look = 'patch',
                 figsize=[14,6],
-                tickMax = 100,
+                tickMax =None,
                 show_axa=None,
                 show_axc = None,
                 shortName=0, **kwargs):
         '''[CORE]: Contains rendering methods for different types of data
 '''
+#         if tickMax 
+        tickMax=self.tickMax if tickMax is None else tickMax
         if axs is None:
             fig, axs = plt.subplots(1,1,figsize=figsize,sharex='all')
 #             ax = axs
@@ -174,6 +213,8 @@ class panelPlot(list):
             show_axa = self.show_axa
         if show_axc is None:
             show_axc = self.show_axc
+            
+        
         header_rotation = self.header_rotation
         assert isinstance(obj, scount.countMatrix)
 #         if show_axa:
@@ -209,10 +250,10 @@ class panelPlot(list):
                 plt.colorbar(mappable=res, cax = axc )
                 axcy = axc.get_yaxis(); axcy.tick_right(); axcy.set_visible(True)
     
-        elif look =='patch':
+        elif look in ['patch']:
             df = obj.fillna(0); 
             res = pyvis.heatmap(
-                df.values[None,:,:3],
+                df.values[None,:,:3].astype(float),
                 ax=axb,
                 cname=None,
 #                 vlim = [None,None],
@@ -222,7 +263,8 @@ class panelPlot(list):
             dftick = getPatchTicks(df,tol =10)
             if not dftick.empty:
                 xticks = dftick.M.values
-                xticklabs = dftick.index.values.astype(int)
+                xticklabs = dftick.index.values
+#                 .astype(int)
                 axb.get_xaxis().tick_top()
     
         elif look =='line':
@@ -292,12 +334,21 @@ class panelPlot(list):
 #                     print ('[tlim]',tlim)
             axb.set_ylim(-0.5,i+0.5)
     
-    
-        #### allow self.xlim to override
-        if self.xlim is not None:
-            xlim = self.xlim
-        elif xlim is None:
-            xlim = [0-0.5,len(obj)-0.5]
+        elif look == 'feats':
+            feats = obj.values.ravel()
+            if isinstance(feats[0] ,Bio.SeqFeature.SeqFeature):
+                feats = map(seqFeat2plotFeat, feats)
+            for fi, feat in enumerate(feats):
+                feat.draw_feature()
+                map(axb.add_patch, feat.patches)
+                feat.draw_feat_name()
+                map(axb._add_text,feat.feat_name)
+
+#             axb.set_xlim(0,10000)
+            axb.set_ylim(-1.,1.)    
+#         xlim = 
+        xlim  =self.get_xlim(xlim=self.xlim)
+        print ('[xlim]',xlim)
         axb.set_xlim(xlim)
         
         if self.debug:
@@ -340,9 +391,9 @@ class panelPlot(list):
 
             else:
                 colnames = obj.colName_short() if shortName else obj.columns
-                if len(colnames) > tickMax:
-                    pass
-                else:
+                if len(colnames) < tickMax or tickMax==-1:
+#                     pass
+#                 else:
                     for i,col in enumerate(colnames):
                         axa.text(1., i,
                              str(col)[:25],
@@ -388,7 +439,30 @@ class panelPlot(list):
 #         pyvis.hide_ticks(axb)
 #         pyvis.hi
         return axs
-    
+
+    def get_xlim(self,xlim=None, obj=None):
+        #### allow self.xlim to override
+        if self.xlim is not None:
+            xlim = self.xlim
+
+        elif xlim is None:
+            assert obj is not None,'Need to supply a data frame to set index'
+            if obj.index.is_numeric():
+                xlim = pyutil.span(obj.index)
+            else:
+                xlim = [0-0.5,len(obj)-0.5]
+        return xlim
+    @property
+    def mapped_index(self):
+        if self.indexMapper is not None:
+            mapper = dict(zip(self.index, self.index))
+            mapper.update(self.indexMapper)
+            res = map(mapper.get, self.index)
+        else:
+            res = self.index
+        return res
+#             self.index = 
+#         self.index
     def namedIndex(self,index=None,geneName = None):
         index = self.index if index is None else index
         geneName = self.geneName if geneName is None else geneName
@@ -455,10 +529,13 @@ class panelPlot(list):
             axsLst = axsLst[None,:]
 #         if not isinstance(axsLst,pyutil.np.ndarray) else axsLst
         
-#         plt.suptitle(title,y=0.95)     
+#         plt.suptitle(title,y=0.95)    
+        if self.xlim is None:
+            self.xlim = self.get_xlim(xlim=self.xlim, obj=self[0])
         for i in range(len(self)):
             axs, ele = axsLst[i], self[i]            
 #             ax = axs[1]
+            assert ele.name !='test','Track name cannot be %s'% ele.name
             self._render(ele, axs=axs, look = ele.look,silent = silent,
                         shortName=shortName)
         if self.xlim is not None:
@@ -473,9 +550,9 @@ class panelPlot(list):
         axsLst[0][1].set_title(title)
         
         L_index = self.index.__len__()
-        if L_index<=tickMax and L_index!=1:
+        if (L_index<=tickMax or tickMax==-1)and L_index!=1:
 #             xticks = self.namedIndex()
-            xticklabs = self.index
+            xticklabs = self.mapped_index
             ax = axsLst[-1][1]; plt.sca(ax)
 #             ax.xaxis.set_major_formatter(mticker.FixedFormatter())
             plt.xticks(range(len(xticklabs)), xticklabs , rotation = 'vertical')
@@ -521,8 +598,10 @@ index: Specify the data to be included. Inferred from joinIndex() if is None
             if not silent:
                 print 'Index:%d'% i,
                 print 'look:', ele.look, len(ele)
-            if ele.look != 'gtf':
-                ele = ele.reindex(self.index)
+#             if ele.look != 'gtf':
+            if ele.isIndexed:
+                ele = ele.setDF(ele.loc[self.index])
+#                 ele = ele.reindex(self.index)
 #             ele = ele.setDF(ele.reindex( self.index ))
             if looks[i] == 'patch':
                 if ele.cmap is None:
@@ -553,6 +632,16 @@ Promote ith element to the starting of list
 '''
         self.insert(0,self.pop(i))
         return self
+    @property
+    def indexedTracks(self):
+#         lst = self
+        lst = [] 
+        for x in self:
+            if not x.isIndexed:
+#             if x.look in ['gtf','feats']:
+                continue
+            lst.append(x)
+        return lst
     
     def joinIndex(self, how = None,):
         '''
@@ -560,7 +649,12 @@ order: A DataFrame which will be sorted to obatin the ordering
 '''
         if how is None:
             how = 'outer'
-        idx = vstack(self,as_index = 1, how=how)
+        if self.indexedTracks:
+            idx = scount.vstack(self.indexedTracks, as_index = 1, how=how)
+        else:
+            warnings.warn('indexing using longest track')
+            idx = pd.Index(range(max(map(len,self))))
+            
         self.index = idx
         return idx
     def orderBy(self, order = None, how=None, head = None ):
@@ -604,7 +698,7 @@ order: A DataFrame which will be sorted to obatin the ordering
                 TYPE = 'unknown'
             dd.columns = ['%s_%s'%(TYPE, col) for col in dd.columns]
             
-        res = vstack(lst, how=how)
+        res = scount.vstack(lst, how=how)
         
         return res
     

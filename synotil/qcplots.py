@@ -567,3 +567,61 @@ def qc_summitDist(peak1,peak2,GSIZE,
     return df_inter,indVenn, axs
 
 
+
+def qc_libsize(dfc0, silent=1,ax=None, n =20):
+    '''
+    Correct the lib size deviation using lowly varying genes
+    '''
+    if not isinstance(dfc0,scount.countMatrix):
+        dfc0 = scount.countMatrix(dfc0.copy())
+    dfc0.qc_Avg()
+    def getLoss(per,debug=0,ax=None, estimator=np.median):
+        vdf = dfc0.copy()
+        index = vdf.summary.query('per_SD < %s '%per).index
+    #     index = vdf.qc_Avg().summary.query('per_M < 0.3 ').index
+    #     vdf = sutil.meanNorm(vdf)
+#         const = vdf.reindex(index).values.mean(axis=0)[None]
+#         const = np.median(vals, axis=0)[None]
+#         const = np.mean(vals, axis=0)[None]
+        vals =  vdf.reindex(index).values
+        const = estimator(vals, axis=0)[None]        
+        vdf = vdf.setDF(vdf - const)
+        
+#         sd = vdf.summary.reindex(index)['SD']
+        sd = vdf.qc_Avg().summary['SD']
+        lossA,lossB = sd.median(),sd.mean()
+        if debug == 1:
+#             if ax is None:
+#                 ax = plt.gca()
+            vv = vals.T[-4]
+            pyvis.histoLine(vv,30)
+#             print vals.T[0].mean()
+#             print vals.shape
+            ax.plot(vv.mean(),0.05,'x')
+            ax.plot(np.median(vv),0.07,'x')
+            return vdf
+        if debug == 2:
+            return const,vdf
+        return lossA,lossB
+    xs = np.linspace(0,1,n+1)[1:]
+#     xs = np.arange(0,1,0.05)[1:]
+    res = map(getLoss, xs)
+    res = np.array(res)
+    
+    xmin = xs[np.argmin(res.T[0])]
+    
+    if not silent:
+        if ax is None:
+            ax = plt.gca()
+            
+        ax.plot(xs,res.T[0])
+        # plt.ylim(0.4,None)
+        ax.twinx().plot(xs,res.T[1],'go')
+        # plt.ylim(0.4,None)
+        # plt.ylim(0,None)
+        ax.set_title(res.min(axis=0))
+        ax.grid(1)
+        pyvis.abline(x0=xmin)
+        
+    const,vdf = getLoss( xmin,debug=2)
+    return const, vdf

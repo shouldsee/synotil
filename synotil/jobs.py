@@ -189,7 +189,7 @@ def job__render__panelPlot(
         locals().update(extra)
         index = eval(index)
 
-    cluTrack = spanel.fixCluster(clu)
+    cluTrack = spanel.fixCluster(clu.get(['clu']))
     alias = aliasFmt.format(**locals())
 #     cluFile_clean = 'clean_%s.csv' % alias
 #     cluc.to_csv(cluFile_clean)    
