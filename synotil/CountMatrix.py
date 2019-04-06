@@ -123,7 +123,7 @@ knows how to plot itself
                  look = None,
                  cmap = None,
                  vlim = None,
-                 fname = None,
+                fname = None,
                  model = None,
                  colMeta = None,
                  rowMeta = None,
@@ -147,7 +147,10 @@ knows how to plot itself
                      }        
         self.set_config( test=None,**kwargs)
         self.test= None
-        
+
+        assert self.name !='test','Track name cannot be %s'% self.name
+
+
     def set__colMeta(self,colMeta,castF = unicode):
         if colMeta is not None:
             colMeta = colMeta.reindex(self.columns).astype(castF)
@@ -168,7 +171,10 @@ knows how to plot itself
                 vlim = - np.mean(vlim) + vlim
         self.vlim = vlim
         return     
-    
+    @property
+    def isIndexed(self):
+        res = self.look not in ['gtf','feat','feats']
+        return res
     @property
     def colMeta(self):
         return self.colMeta_
@@ -221,6 +227,9 @@ knows how to plot itself
     def set_name(self,name):
         self.name_ = name
         return name
+    def set__name(self,*a,**kw):
+        return self.set_name(*a,**kw)
+    
     def set_config(self, **kwargs):
         if 'name' in kwargs:
             self.set_name(kwargs.pop('name'))
@@ -424,13 +433,15 @@ knows how to plot itself
         SE = SD/effSize ** 0.5
         # df = pd.concat([M,SD,CV],axis=1)
         MSQ = M**2 + SD**2
-        df = pd.DataFrame({'M':M,
+        df = pd.DataFrame({'M': M,
                            'SD':SD,
                            'MSQ':MSQ,
+                           'RMSQ':np.sqrt(MSQ),
                            'MAX':MAX,
                            'MIN':MIN,
                            'CV':CV,
                            'SE':SE,
+#                            'MSQ':MSQ,
                           'effSize':effSize,
                           })
 #         df = pd.DataFrame({'M':M.values,

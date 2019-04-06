@@ -1,0 +1,10 @@
+biopython
+#biograpy
+hmmlearn
+#multiprocessing
+pandas
+pyBigWig
+scipy
+sklearn
+#textwrap
+wrapt

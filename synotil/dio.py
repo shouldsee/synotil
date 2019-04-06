@@ -1,10 +1,12 @@
 
 #### Data I/O
-import CountMatrix as scountjo
-import pymisca.util as pyutil
+import CountMatrix as scount
 import pyBigWig as pybw
-pd = pyutil.pd; np = pyutil.np; 
+# import pymisca.util as pyutil
+import pymisca.shell as pysh
+import pymisca.ext as pyext
 import pymisca.util as pyutil
+pd = pyutil.pd; np = pyutil.np; 
 # import synotil.dio as sdio
 
 
@@ -892,3 +894,14 @@ def bed__checkValid(bed, GSIZE, force=0):
             return ofname
         else:
             return resDF
+        
+        
+def sra__dump(uri,
+#               level=2,
+              silent=1,
+              baseFile=0):
+    uri = pyext.base__file(uri,baseFile=baseFile)
+#     head,tail = pyext.splitPath(uri)
+    CMD = 'fastq-dump {uri} 2>LOG'.format(**locals())
+    res = pysh.shellexec(CMD,silent=silent)
+    return res        
