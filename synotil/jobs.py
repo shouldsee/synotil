@@ -165,7 +165,8 @@ def job__render__panelPlot(
         alias = ''
     if isinstance(clu,basestring):
         alias += pyext.getBname(clu)
-        clu = pyutil.readData(clu,baseFile=baseFile)
+        clu = pyutil.readData(clu,baseFile=baseFile).get(['clu'])
+        
     if isinstance(order,basestring):
         alias += pyext.getBname(order)
         order = pyutil.readData(order,baseFile=baseFile)
@@ -457,13 +458,19 @@ def job__chipTargPaired(
 
     xs,ys = bwAvg[[xlab,ylab]].values.T
 #     clu = None
-    query = ' val_{ylab} - val_{xlab} > {CUTOFF_CHIPDIFF} '.format(**locals())
-    qsans = pyutil.sanitise_query(query)
+    
     
 #     peakIndex = pyutil.df__pad(bwAvg).query(query).index
     clu = pd.DataFrame(pyutil.df__pad(bwAvg))
+    query = ' val_{ylab} - val_{xlab} > {CUTOFF_CHIPDIFF} '.format(**locals())
+    qsans = pyutil.sanitise_query(query)
     peakIndex = clu.query(query).index
     clu['clu']= clu.eval('index in @peakIndex')
+    
+    stats = sdio.extract_peak(peakFile).set_index('acc',drop=0)
+    stats['CHIPDIFF'] = clu.eval(query.split('>')[0])
+    
+    
     
     pyvis.qc_2var(xs,ys,clu=clu.clu,xlab=xlab,ylab=ylab)
     figs['scatterPlot__%s' % name ]= plt.gcf()
@@ -473,7 +480,7 @@ def job__chipTargPaired(
     peakBase = pyutil.getBname(peakFile)
     ofname =  '{peakBase}-{qsans}.bed'.format(**locals())
     peakFile = pyutil.to_tsv(
-        sdio.extract_peak(peakFile).set_index('acc',drop=0).reindex(peakIndex),
+        stats.reindex(peakIndex),
                            ofname)
     pyutil.shellexec('mkdir -p output/')
     pyutil.file__link(ofname,'output/%s.bed' % name,force=True)

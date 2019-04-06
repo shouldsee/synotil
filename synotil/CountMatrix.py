@@ -141,16 +141,24 @@ knows how to plot itself
         self.height = height 
 #         self.colMeta_ = colMeta
         self.set__colMeta(colMeta)
-        self.rowMeta_ = rowMeta
+        self.set__rowMeta(rowMeta)
+#         self.rowMeta_ = rowMeta
         self.param = {'normF':'identityNorm',
                      }        
         self.set_config( test=None,**kwargs)
         self.test= None
+        
     def set__colMeta(self,colMeta,castF = unicode):
         if colMeta is not None:
             colMeta = colMeta.reindex(self.columns).astype(castF)
         self.colMeta_ = colMeta
         return 
+
+    def set__rowMeta(self,rowMeta,castF = unicode):
+        if rowMeta is not None:
+            rowMeta = rowMeta.reindex(self.index).astype(castF)
+        self.rowMeta_ = rowMeta
+        return  
     
     def set__vlim(self,vlim=None):
         if vlim is None:
@@ -164,18 +172,20 @@ knows how to plot itself
     @property
     def colMeta(self):
         return self.colMeta_
+#     .reindex(self.columns)
     @property
     def rowMeta(self):
         return self.rowMeta_
+#     .reindex(self.index)
     
     def relabel(self,colLabel=None,rowLabel=None):
         '''Decorate the data frame to be ready for plotting
     '''
         if colLabel is None and rowLabel is None:
             if self.colMeta is not None:
-                self.columns = self.colMeta.index
+                self.columns = self.colMeta_.index
             if self.rowMeta is not None:
-                self.index   = self.rowMeta.index
+                self.index   = self.rowMeta_.index
 #             raise Exception('must supply one argument')
         if colLabel is not None:
             self.columns = self.colMeta[colLabel]             
@@ -251,6 +261,8 @@ knows how to plot itself
 #             print self.__class__, res.__class__
             res = self.__class__.from_DataFrame(df = res,)            
         res.__setstate__(configDict)
+        res.set__colMeta(res.colMeta)
+        res.set__rowMeta(res.rowMeta)        
 #         res.set_config(**config)
         return res
     def subSampleColumns(self,stepSize=5):
