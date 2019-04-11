@@ -902,6 +902,20 @@ def sra__dump(uri,
               baseFile=0):
     uri = pyext.base__file(uri,baseFile=baseFile)
 #     head,tail = pyext.splitPath(uri)
-    CMD = 'fastq-dump {uri} 2>LOG'.format(**locals())
+    CMD = 'fastq-dump --split-files {uri} 2>LOG'.format(**locals())
     res = pysh.shellexec(CMD,silent=silent)
     return res        
+
+def df__topupANDdrop(dfc, CUTOFF=30, threshold = 2,  inplace=False):
+#     SUM = (dfc!=0).sum(axis=1)
+    if not isinstance(dfc, scount.countMatrix):
+        dfc = scount.countMatrix(dfc)
+    BELOW = (dfc > CUTOFF)
+    SUM = BELOW.sum(axis=1)
+    toDrop = SUM.to_frame('SUM').query('SUM< %d' % threshold).index
+    print ('[before-drop]',dfc.shape)
+    dfc = dfc.drop(index=toDrop,inplace=inplace)
+    print ('[after-drop]',dfc.shape)
+#     dfc = 
+    dfc = dfc.setDF(np.maximum(dfc.values,CUTOFF))
+    return dfc

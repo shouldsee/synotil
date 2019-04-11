@@ -585,7 +585,7 @@ def qc_libsize(dfc0, silent=1,ax=None, n =20):
 #         const = np.mean(vals, axis=0)[None]
         vals =  vdf.reindex(index).values
         const = estimator(vals, axis=0)[None]        
-        vdf = vdf.setDF(vdf - const)
+        vdf = vdf.setDF(vdf.values - const)
         
 #         sd = vdf.summary.reindex(index)['SD']
         sd = vdf.qc_Avg().summary['SD']

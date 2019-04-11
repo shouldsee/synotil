@@ -58,7 +58,12 @@ def figs__peakBW(peakFile,
         
     poss = bwTracks.columns.levels[1]
     innerPos = poss[abs(poss) <= innerRadius]
-
+    
+    bwTracks = bwTracks.T.query('~index.duplicated()').T
+#     [bwTracks.columns.drop_duplicates()]
+    
+#     bwTracks = bwTracks[bwTracks.columns.drop_duplicates()]
+    
     bwAvg = pyutil.colGroupMean(bwTracks.reindex(columns=innerPos,level=1))
     bwAvg = scount.countMatrix(bwAvg).apply(pyutil.log2p1)
 
@@ -95,8 +100,8 @@ def figs__peakBW(peakFile,
                           squareSize=(0.025,0.2),
                           ytick = dfc.index,
                           xlab = 'distance to %s' % key,
-                         vlim=ylim,
-                         cname=cname)
+                          vlim=ylim,
+                          cname=cname)
             
             ax = plt.gca()
             xticks = pos[ax.get_xticks().astype(int)[:-1]]
@@ -454,7 +459,9 @@ def job__chipTargPaired(
     figs.update(res[0])
 
     bwTrack,bwAvg = res[1]
-    bwAvg.columns = bwCurr.index
+    bwAvg.columns = bwAvg.columns.map(pyutil.df2mapper(bwCurr,'header','index').get)
+#     .set_index('RPKMFile').loc[bwAvg.columns].
+#     bwAvg.columns = bwCurr.index
 
     xs,ys = bwAvg[[xlab,ylab]].values.T
 #     clu = None
