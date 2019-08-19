@@ -1,5 +1,11 @@
 ## Install
 
+### dependencies (not automated yet)
+
+```bash
+pip2 install -r https://raw.githubusercontent.com/shouldsee/synotil/master/requirements.txt
+```
+
 ### non-dev
 
 ```bash
