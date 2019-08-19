@@ -1,6 +1,7 @@
 biopython
 #biograpy
-hmmlearn
+#hmmlearn
+hmmlearn==0.2.2
 #multiprocessing
 pandas
 pyBigWig
