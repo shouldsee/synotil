@@ -6,6 +6,8 @@ import pymisca.util as pyutil
 plt = pyvis.plt
 import synotil.modelRoutine as smod
 import synotil.CountMatrix as scount
+import pymisca.numpy_extra as pynp
+# as pyext
 
 import numpy as np
 
@@ -568,6 +570,41 @@ def qc_summitDist(peak1,peak2,GSIZE,
 
 
 
+def qc_scatter(x,y,s=2,xlab='x',ylab='y',axs = None,bins=(40,40)):
+    if axs is None:
+        fig,axs= plt.subplots(1,2,figsize=[14,3])
+    for v in ['x','y']:
+        if isinstance(eval(v),pd.Series):
+            exec('{v}lab={v}.name'.format(v=v))
+    ct,binx,biny = np.histogram2d(x,y,bins=bins)
+    if axs[1] is not None:
+        plt.sca(axs[1])
+        plt.pcolormesh(binx,biny, np.log2(1+ct.T))    
+
+    ax = axs[0]
+    if ax is not None:
+        plt.sca(ax)
+        plt.scatter(x,y,s=s)
+        plt.xlim(pynp.span(binx))
+        plt.ylim(pynp.span(biny))
+        pyvis.abline(ax=ax)
+    
+    R2 = np.corrcoef(x,y)[0,1] ** 2
+    
+    title = '$R^2=%.4f$'%R2
+    for ax in axs:
+        if ax is None:
+            continue
+        plt.sca(ax)
+        plt.grid()
+        plt.xlabel(xlab)
+        plt.ylabel(ylab)
+        ax.set_title(title)
+#     plt.suptitle()
+    return axs,title
+
+
+
 def qc_libsize(dfc0, silent=1,ax=None, n =20):
     '''
     Correct the lib size deviation using lowly varying genes
@@ -585,7 +622,7 @@ def qc_libsize(dfc0, silent=1,ax=None, n =20):
 #         const = np.mean(vals, axis=0)[None]
         vals =  vdf.reindex(index).values
         const = estimator(vals, axis=0)[None]        
-        vdf = vdf.setDF(vdf.values - const)
+        vdf = vdf.setDF(vdf - const)
         
 #         sd = vdf.summary.reindex(index)['SD']
         sd = vdf.qc_Avg().summary['SD']

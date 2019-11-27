@@ -963,7 +963,7 @@ def make_qc_Model(vX,tX=None,normF = None):
     return qc_Model
 
 
-# In[1]:
+# In[2]:
 
 
 if __name__=='__main__':
@@ -971,24 +971,28 @@ if __name__=='__main__':
 # !python compile_meta.ipynb && echo '[succ]'
 
 
-# In[ ]:
+# In[1]:
 
 
-def qc_Sort(df=None,fname=None,cname = 'test',vlim = [-2,2] , title = None,
+def qc_Sort(df=None,fname=None,cname = 'test',
+#             vlim = [-2,2] , 
+            vlim = None,
+            title = None,
             xlim = None,
             ylim = None,
             figsize2=[14,6],
             nMax = 5000,
             **heatargs):
     figs = collections.OrderedDict()
-    vmin, vmax = vlim
+#     vmin, vmax = vlim
     if df is None:
         df = pyutil.readData(fname)
         if title is None:
             title = '[file]%s'%fname
     heatargs.update(
-        {'vmin':vmin,
-         'vmax':vmax,
+        {
+#             'vmin':vmin,
+#          'vmax':vmax,
          'cname':cname,
          'vlim':vlim,
         }    )

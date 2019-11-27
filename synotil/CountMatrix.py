@@ -123,7 +123,7 @@ knows how to plot itself
                  look = None,
                  cmap = None,
                  vlim = None,
-                fname = None,
+                 fname = None,
                  model = None,
                  colMeta = None,
                  rowMeta = None,
@@ -141,27 +141,18 @@ knows how to plot itself
         self.height = height 
 #         self.colMeta_ = colMeta
         self.set__colMeta(colMeta)
-        self.set__rowMeta(rowMeta)
-#         self.rowMeta_ = rowMeta
+        self.rowMeta_ = rowMeta
         self.param = {'normF':'identityNorm',
                      }        
         self.set_config( test=None,**kwargs)
         self.test= None
-
         assert self.name !='test','Track name cannot be %s'% self.name
-
 
     def set__colMeta(self,colMeta,castF = unicode):
         if colMeta is not None:
             colMeta = colMeta.reindex(self.columns).astype(castF)
         self.colMeta_ = colMeta
         return 
-
-    def set__rowMeta(self,rowMeta,castF = unicode):
-        if rowMeta is not None:
-            rowMeta = rowMeta.reindex(self.index).astype(castF)
-        self.rowMeta_ = rowMeta
-        return  
     
     def set__vlim(self,vlim=None):
         if vlim is None:
@@ -178,20 +169,18 @@ knows how to plot itself
     @property
     def colMeta(self):
         return self.colMeta_
-#     .reindex(self.columns)
     @property
     def rowMeta(self):
         return self.rowMeta_
-#     .reindex(self.index)
     
     def relabel(self,colLabel=None,rowLabel=None):
         '''Decorate the data frame to be ready for plotting
     '''
         if colLabel is None and rowLabel is None:
             if self.colMeta is not None:
-                self.columns = self.colMeta_.index
+                self.columns = self.colMeta.index
             if self.rowMeta is not None:
-                self.index   = self.rowMeta_.index
+                self.index   = self.rowMeta.index
 #             raise Exception('must supply one argument')
         if colLabel is not None:
             self.columns = self.colMeta[colLabel]             
@@ -270,8 +259,6 @@ knows how to plot itself
 #             print self.__class__, res.__class__
             res = self.__class__.from_DataFrame(df = res,)            
         res.__setstate__(configDict)
-        res.set__colMeta(res.colMeta)
-        res.set__rowMeta(res.rowMeta)        
 #         res.set_config(**config)
         return res
     def subSampleColumns(self,stepSize=5):
@@ -353,6 +340,8 @@ knows how to plot itself
                 ytick = None,xtick = None,
                 reorder=0,ax=None,transpose=1,
                 tickMax=100,
+                xlim = None,
+                ylim = None,
                 short = 1,
                 **kwargs):
         vlim = self.vlim if vlim is None else vlim
@@ -365,9 +354,16 @@ knows how to plot itself
         if ytick is None:
             ytick = self.index if len(self) < 500 else None
             
+        y,x = self.shape
+#         y,x = self.shape
+        if xlim is None:
+            xlim = [0 -0.5,x - 0.5]
+        if ylim is None:
+            ylim = [0 -0.5,y - 0.5]
         if transpose:
             xtick,ytick = ytick,xtick
             xlab,ylab = ylab,xlab
+#             xlim,ylim = ylim,xlim
         
 #         im = pyvis.heatmap(C[cidx][sidx],
         im = pyvis.heatmap(C,
@@ -380,6 +376,8 @@ knows how to plot itself
                            vlim = vlim,
                            xtick=xtick,
                            ytick =ytick,
+                           xlim = xlim,
+                           ylim = ylim,
                            tickMax = tickMax,
                            ax=ax,**kwargs
                           ) 

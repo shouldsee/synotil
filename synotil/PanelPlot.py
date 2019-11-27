@@ -11,8 +11,12 @@ import warnings
 # import xlsxwriter
 import operator
 
-
-import biograpy
+try:
+    import biograpy
+except:
+    class biograpy(object):
+        msg='failed_import'
+        
 import Bio.SeqFeature
 # reload(pyutil)
 # pyutil.cluMap = pyutil.mpl.colors.ListedColormap(['r', 'g', 'b', 'y', 'w', 'k', 'm'])
@@ -55,8 +59,12 @@ import copy
 def fixCluster(ele,**kwargs):
     ''' Fix a integer-type track into a color track
 '''
-    if isinstance(ele,pd.DataFrame):
-        ele = ele[ele.columns[0]]
+#     ele0 = ele.copy()
+    if not isinstance(ele,scount.countMatrix):
+        ele = scount.countMatrix(ele)
+    ele0 = ele.copy()
+#     if isinstance(ele,pd.DataFrame):
+    ele = ele[ele.columns[0]]
 #     if ele.dtype.is_dtype('category'):
     if str(ele.dtype) == 'category':
         val = np.nan_to_num(ele.cat.codes) 
@@ -79,22 +87,25 @@ def fixCluster(ele,**kwargs):
 #     print cmat.shape
 #     ele  =pd.DataFrame(cmat).set_index( ele.index)
 #     ele.look = 'patch'
-    if not isinstance(ele,scount.countMatrix):
-        ele = scount.countMatrix(ele,
-                                 **kwargs
-                                )
 
-    elenew = ele.setDF(pd.DataFrame(cmat).set_index( ele.index) )
+#     if not isinstance(ele,scount.countMatrix):
+#         ele = scount.countMatrix(ele,
+#                                  **kwargs
+#                                 )
+    
+    elenew = ele0.copy().setDF(pd.DataFrame(cmat).set_index( ele.index) )
     elenew['clu'] = ele.values; ele =elenew
 #     ele.__dict__.update(kwargs)
 #     ele.cmap = cmap
 #     ele.look = 'patch'
     ele.columns  = [unicode(ele.name)] + list(ele.columns[1:])
-    ele = scount.countMatrix(ele,
-                             cmap = cmap,
-                             look='patch',
-                                 **kwargs
-                                )
+    ele.look = 'patch'
+    ele.cmap = cmap
+#     ele = scount.countMatrix(ele,
+#                              cmap = cmap,
+#                              look='patch',
+#                                  **kwargs
+#                                 )
 #     ele = ele.rename(columns={0:unicode(ele.name)},)
     return ele
 
@@ -243,23 +254,34 @@ class panelPlot(list):
         xlim = None
         
         if look =='matrix':
-            res = obj.heatmap(ax=axb,cname = None,vlim=obj.vlim)   
+            res = obj.heatmap(ax=axb,cname = None,
+                              vlim=obj.vlim,
+#                               xlim = self.get_xlim(xlim=self.xlim),
+#                              ylim = [-0.5,obj.shape[1] + 0.5],
+#                              ylim = [-0.5,obj.shape[1]-0.5],
+                             )   
+#             ax.set_ylim(ylim)
 #             res = pyvis.heatmap(obj.values, vlim = vlim, 
 #                                 ax=axb,cname = None)   
             if show_axc:
                 plt.colorbar(mappable=res, cax = axc )
                 axcy = axc.get_yaxis(); axcy.tick_right(); axcy.set_visible(True)
-    
+            
         elif look in ['patch']:
             df = obj.fillna(0); 
             res = pyvis.heatmap(
                 df.values[None,:,:3].astype(float),
                 ax=axb,
                 cname=None,
+                
 #                 vlim = [None,None],
 #                 vlim = [0,1]
-            )           
-
+            )
+#             ylim = [0,df.shape[1]]
+#                 ylim=ylim,
+#             axb.set_ylim(ylim)
+#             print ('[ylim]',axb.get_ylim())
+#             axb.set_ylim(0,len(df.columns)) 
             dftick = getPatchTicks(df,tol =10)
             if not dftick.empty:
                 xticks = dftick.M.values
@@ -600,8 +622,9 @@ index: Specify the data to be included. Inferred from joinIndex() if is None
                 print 'look:', ele.look, len(ele)
 #             if ele.look != 'gtf':
             if ele.isIndexed:
-                ele = ele.setDF(ele.loc[self.index])
-#                 ele = ele.reindex(self.index)
+#                 ele = ele.setDF(ele.loc[self.index])
+#                 ele = ele.setDF(ele.loc[self.index])
+                ele = ele.reindex(self.index)
 #             ele = ele.setDF(ele.reindex( self.index ))
             if looks[i] == 'patch':
                 if ele.cmap is None:
