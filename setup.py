@@ -12,6 +12,7 @@ setup(name='synotil',
             #biograpy
             #hmmlearn
             "hmmlearn==0.2.2",
+            "biograpy @ https://github.com/shouldsee/BioGraPy/tarball/2b31b12",
             #multiprocessing
             "pandas",
             "pyBigWig",
