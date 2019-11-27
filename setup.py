@@ -7,6 +7,20 @@ setup(name='synotil',
       author='Feng Geng',
       author_email='shouldsee.gem@gmail.com',
       url='none',
+      install_requires=[
+            "biopython",
+            #biograpy
+            #hmmlearn
+            "hmmlearn==0.2.2",
+            #multiprocessing
+            "pandas",
+            "pyBigWig",
+            "scipy",
+            "sklearn",
+            #textwrap
+            "wrapt",
+      ],
+      
       package_dir = {'synotil': 'synotil'},
       packages=['synotil', ],
      )
