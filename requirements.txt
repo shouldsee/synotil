@@ -1,11 +1,11 @@
 biopython
-#biograpy
-#hmmlearn
-hmmlearn==0.2.2
-#multiprocessing
+hmmlearn==0.2.1
 pandas
 pyBigWig
 scipy
 sklearn
-#textwrap
 wrapt
+
+#biograpy
+#multiprocessing
+#textwrap
