@@ -8,18 +8,8 @@ setup(name='synotil',
       author_email='shouldsee.gem@gmail.com',
       url='none',
       install_requires=[
-            "biopython",
-            #biograpy
-            #hmmlearn
-            "hmmlearn==0.2.2",
-            "biograpy @ https://github.com/shouldsee/BioGraPy/tarball/2b31b12",
-            #multiprocessing
-            "pandas",
-            "pyBigWig",
-            "scipy",
-            "sklearn",
-            #textwrap
-            "wrapt",
+      x.strip() for x in open("requirements.txt","r")
+      if x.strip() and not x.strip().startswith("#")
       ],
       
       package_dir = {'synotil': 'synotil'},
