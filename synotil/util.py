@@ -1095,8 +1095,8 @@ def qc_minfo(resA=None,resB=None,
 # In[ ]:
 
 
-import PanelPlot as spanel
 def make_interViewer(resA,resB,):
+    import PanelPlot as spanel
     cluA = clu = resA.predict()
     cluB = clu = resB.predict()
     
