@@ -12,12 +12,12 @@ import warnings
 import operator
 
 
-import biograpy
 import Bio.SeqFeature
 # reload(pyutil)
 # pyutil.cluMap = pyutil.mpl.colors.ListedColormap(['r', 'g', 'b', 'y', 'w', 'k', 'm'])
 
 def seqFeat2plotFeat(feat):
+    import biograpy
     '''Default transformation from seqFeature to biograpy.features
 '''
     
