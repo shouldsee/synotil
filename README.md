@@ -1,5 +1,9 @@
 ## Install
 
+### Requirements:
+
+1. zlib.h for pyBigWig `apt-get install libz-dev`
+
 ### dependencies (not automated yet)
 
 ```bash
