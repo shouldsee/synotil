@@ -351,14 +351,15 @@ knows how to plot itself
                 xlab='Condition',
                 ylab = '',
                 ytick = None,xtick = None,
-                reorder=0,ax=None,transpose=1,
+                reorder=0,ax=None,transpose=0, ### [buggy] pymisca updated transpose
                 tickMax=100,
                 short = 1,
                 **kwargs):
         vlim = self.vlim if vlim is None else vlim
         reorder and self.reorder();
         C = self.values if C is None else C
-        
+        C = C.T ### [buggy] pymisca updated transpose
+
         if xtick is None:
             xtick = self.colName_short() if short else self.columns
             
@@ -373,8 +374,9 @@ knows how to plot itself
         im = pyvis.heatmap(C,
 #                            ylab=(None if not i else 'Gene'),
 #                            ytick = (None if not i else gCur['Gene Name']),
-                           xlab=xlab,
+                           xlab=  xlab,
                            ylab = ylab,
+
                            transpose=transpose,
                            cname = cname,
                            vlim = vlim,
